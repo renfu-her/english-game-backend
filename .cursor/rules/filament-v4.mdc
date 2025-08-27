@@ -1,0 +1,4019 @@
+---
+alwaysApply: true
+---
+# Filament v4 完整指南
+
+## 概述
+
+Filament v4 是 Filament 框架的重大版本更新，帶來了許多新功能和架構改進。本文檔將詳細介紹 v4 的新特性、與 v3 的差異，以及如何使用這些新功能。
+
+## 主要變化
+
+### 1. 架構重構
+
+#### 1.1 面板系統 (Panel System)
+- **v3**: 單一面板概念
+- **v4**: 多面板支持，可以創建多個獨立的管理面板
+- 每個面板可以有自己的用戶、資源、頁面和配置
+- 支持不同的域名和子域名
+
+#### 1.2 組件架構
+- **v3**: 基於 Blade 組件
+- **v4**: 完全基於 Livewire 3 和 Alpine.js
+- 更好的響應式設計和交互體驗
+- 更強大的實時更新功能
+
+### 2. 資源系統 (Resources)
+
+#### 2.1 資源概述
+Filament 資源是管理 Eloquent 模型的完整 CRUD 界面。每個資源都包含以下頁面：
+- **List** - 分頁表格顯示所有記錄
+- **Create** - 創建新記錄的表單
+- **Edit** - 編輯現有記錄的表單
+- **View** - 只讀記錄顯示 (v4 新增)
+
+#### 2.2 資源頁面詳解
+
+##### 2.2.1 列表頁面 (Listing Records)
+**新功能：**
+- **標籤頁過濾**: 使用 `getTabs()` 方法添加標籤頁來過濾記錄
+- **自定義標籤標籤**: 使用 `Tab::make('Custom Label')` 自定義標籤名稱
+- **標籤圖標**: 使用 `icon()` 方法添加圖標，支持 `iconPosition()` 設置位置
+- **標籤徽章**: 使用 `badge()` 方法添加徽章，支持 `badgeColor()` 設置顏色
+- **默認標籤**: 使用 `getDefaultActiveTab()` 設置默認選中的標籤
+- **自定義查詢**: 使用 `modifyQueryUsing()` 自定義 Eloquent 查詢
+- **自定義頁面內容**: 使用 `content()` 方法自定義頁面結構
+
+**示例代碼：**
+```php
+public function getTabs(): array
+{
+    return [
+        'all' => Tab::make('All customers'),
+        'active' => Tab::make('Active customers')
+            ->icon('heroicon-m-check-circle')
+            ->badge(Customer::where('active', true)->count())
+            ->modifyQueryUsing(fn (Builder $query) => $query->where('active', true)),
+        'inactive' => Tab::make('Inactive customers')
+            ->icon('heroicon-m-x-circle')
+            ->badge(Customer::where('active', false)->count())
+            ->modifyQueryUsing(fn (Builder $query) => $query->where('active', false)),
+    ];
+}
+
+public function getDefaultActiveTab(): string | int | null
+{
+    return 'active';
+}
+```
+
+##### 2.2.2 創建頁面 (Creating Records)
+**新功能：**
+- **保存前數據自定義**: 使用 `mutateFormDataBeforeCreate()` 方法
+- **自定義創建過程**: 使用 `create()` 方法完全自定義創建邏輯
+- **自定義重定向**: 使用 `getRedirectUrl()` 方法
+- **自定義通知**: 使用 `getCreatedNotification()` 方法
+- **創建另一個記錄**: 支持"創建另一個"功能，可通過 `hasCreateAnother()` 禁用
+- **生命週期鉤子**: 提供多個鉤子方法如 `beforeCreate()`, `afterCreate()`
+- **嚮導支持**: 使用 `wizard()` 方法啟用步驟式表單
+- **導入功能**: 支持批量導入記錄
+
+**示例代碼：**
+```php
+protected function mutateFormDataBeforeCreate(array $data): array
+{
+    $data['user_id'] = auth()->id();
+    return $data;
+}
+
+protected function getRedirectUrl(): string
+{
+    return $this->getResource()::getUrl('index');
+}
+
+protected function getCreatedNotification(): ?Notification
+{
+    return Notification::make()
+        ->success()
+        ->title('User registered')
+        ->body('The user has been created successfully.');
+}
+```
+
+##### 2.2.3 編輯頁面 (Editing Records)
+**新功能：**
+- **保存前數據自定義**: 使用 `mutateFormDataBeforeSave()` 方法
+- **自定義保存過程**: 使用 `save()` 方法完全自定義保存邏輯
+- **自定義重定向**: 使用 `getRedirectUrl()` 方法
+- **自定義通知**: 使用 `getSavedNotification()` 方法
+- **生命週期鉤子**: 提供多個鉤子方法如 `beforeSave()`, `afterSave()`
+- **嚮導支持**: 使用 `wizard()` 方法啟用步驟式表單
+
+##### 2.2.4 視圖頁面 (Viewing Records)
+**v4 全新功能：**
+- 只讀記錄顯示頁面
+- 使用 Infolist 組件顯示數據
+- 支持自定義佈局和樣式
+- 可添加自定義操作按鈕
+
+##### 2.2.5 刪除頁面 (Deleting Records)
+**新功能：**
+- **軟刪除支持**: 自動處理軟刪除模型
+- **強制刪除**: 支持永久刪除記錄
+- **批量刪除**: 支持批量刪除操作
+- **自定義刪除邏輯**: 使用 `delete()` 方法自定義刪除過程
+
+#### 2.3 關係管理 (Managing Relationships)
+**新功能：**
+- **BelongsTo 關係**: 支持下拉選擇和搜索
+- **HasMany 關係**: 支持內嵌表格管理
+- **ManyToMany 關係**: 支持標籤輸入和多選
+- **自定義關係字段**: 完全自定義關係顯示和編輯
+
+#### 2.4 嵌套資源 (Nested Resources)
+**v4 新功能：**
+- 支持父子關係的資源管理
+- 自動處理 URL 結構
+- 支持多層嵌套
+- 自定義嵌套邏輯
+
+#### 2.5 單一資源 (Singular Resources)
+**v4 新功能：**
+- 用於管理單一記錄的資源
+- 適用於設置、配置等場景
+- 自動隱藏列表頁面
+
+#### 2.6 全局搜索 (Global Search)
+**v4 新功能：**
+- 跨資源的統一搜索功能
+- 支持自定義搜索邏輯
+- 支持搜索結果高亮
+- 可配置搜索範圍
+
+### 3. 表格系統 (Tables)
+
+#### 3.1 列類型 (Columns)
+**v4 新增列類型：**
+- **Text Column**: 文本顯示，支持格式化
+- **Icon Column**: 圖標顯示
+- **Image Column**: 圖片顯示
+- **Color Column**: 顏色顯示
+- **Select Column**: 下拉選擇
+- **Toggle Column**: 開關切換
+- **Text Input Column**: 內聯文本編輯
+- **Checkbox Column**: 複選框選擇
+
+**示例代碼：**
+```php
+use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Columns\ImageColumn;
+use Filament\Tables\Columns\ToggleColumn;
+
+TextColumn::make('name')
+    ->searchable()
+    ->sortable()
+    ->formatStateUsing(fn (string $state): string => ucfirst($state));
+
+ImageColumn::make('avatar')
+    ->circular()
+    ->size(40);
+
+ToggleColumn::make('is_active')
+    ->onColor('success')
+    ->offColor('danger');
+```
+
+#### 3.2 過濾器 (Filters)
+**v4 增強功能：**
+- **Select Filters**: 下拉選擇過濾器
+- **Ternary Filters**: 三元過濾器 (是/否/全部)
+- **Query Builder**: 高級查詢構建器
+- **自定義過濾器**: 完全自定義過濾邏輯
+- **過濾器佈局**: 支持不同的過濾器佈局
+
+#### 3.3 操作 (Actions)
+**v4 增強功能：**
+- **模態框操作**: 支持彈窗形式的操作
+- **操作分組**: 將相關操作組織在一起
+- **新操作類型**:
+  - Replicate (複製)
+  - Force-delete (強制刪除)
+  - Restore (恢復)
+  - Import (導入)
+  - Export (導出)
+
+#### 3.4 佈局和功能
+- **行分組**: 支持按列分組顯示
+- **摘要**: 表格底部統計信息
+- **自定義數據**: 支持非 Eloquent 數據源
+- **空狀態**: 自定義空數據顯示
+
+### 4. 表單系統 (Forms)
+
+#### 4.1 概述
+**v4 表單系統特點：**
+- 基於 Livewire 3 的響應式表單
+- 支持實時驗證和錯誤處理
+- 豐富的字段類型和驗證選項
+- 高度可自定義的樣式和行為
+- 支持條件字段和動態表單
+
+#### 4.2 基礎字段組件
+
+##### 4.2.1 文本輸入 (Text Input)
+**功能特性：**
+- 支持多種輸入類型：text, email, password, number, tel, url
+- 實時驗證和錯誤顯示
+- 支持前綴、後綴和圖標
+- 自動完成和建議功能
+- 支持掩碼輸入
+
+**示例代碼：**
+```php
+use Filament\Forms\Components\TextInput;
+
+TextInput::make('name')
+    ->label('Full Name')
+    ->required()
+    ->maxLength(255)
+    ->minLength(2)
+    ->unique(ignoreRecord: true)
+    ->placeholder('Enter your full name')
+    ->prefix('👤')
+    ->suffix('@example.com')
+    ->helperText('Enter your first and last name')
+    ->live(onBlur: true)
+    ->afterStateUpdated(function ($state, $set) {
+        $set('slug', Str::slug($state));
+    });
+```
+
+##### 4.2.2 選擇器 (Select)
+**功能特性：**
+- 支持選項數組和關係查詢
+- 搜索和過濾功能
+- 分組選項支持
+- 多選和單選模式
+- 自定義選項渲染
+
+**示例代碼：**
+```php
+use Filament\Forms\Components\Select;
+
+Select::make('status')
+    ->options([
+        'draft' => 'Draft',
+        'published' => 'Published',
+        'archived' => 'Archived',
+    ])
+    ->required()
+    ->searchable()
+    ->preload()
+    ->native(false)
+    ->placeholder('Select a status')
+    ->default('draft');
+
+// 關係選擇器
+Select::make('user_id')
+    ->relationship('user', 'name')
+    ->searchable()
+    ->preload()
+    ->createOptionForm([
+        TextInput::make('name')->required(),
+        TextInput::make('email')->email()->required(),
+    ]);
+```
+
+##### 4.2.3 複選框 (Checkbox)
+**功能特性：**
+- 單個複選框和複選框列表
+- 自定義標籤和描述
+- 條件顯示和驗證
+- 支持布爾值和數組值
+
+**示例代碼：**
+```php
+use Filament\Forms\Components\Checkbox;
+use Filament\Forms\Components\CheckboxList;
+
+Checkbox::make('terms')
+    ->label('I agree to the terms and conditions')
+    ->required()
+    ->accepted();
+
+CheckboxList::make('permissions')
+    ->options([
+        'read' => 'Read',
+        'write' => 'Write',
+        'delete' => 'Delete',
+        'admin' => 'Administrator',
+    ])
+    ->columns(2)
+    ->required();
+```
+
+##### 4.2.4 開關切換 (Toggle)
+**功能特性：**
+- 布爾值切換開關
+- 自定義開關標籤
+- 支持內聯和塊級顯示
+- 自定義顏色和樣式
+
+**示例代碼：**
+```php
+use Filament\Forms\Components\Toggle;
+
+Toggle::make('is_active')
+    ->label('Active Status')
+    ->onIcon('heroicon-s-check')
+    ->offIcon('heroicon-s-x-mark')
+    ->onColor('success')
+    ->offColor('danger')
+    ->inline(false)
+    ->default(true);
+```
+
+##### 4.2.5 單選按鈕 (Radio)
+**功能特性：**
+- 單選按鈕組
+- 支持垂直和水平佈局
+- 自定義選項渲染
+- 條件顯示和驗證
+
+**示例代碼：**
+```php
+use Filament\Forms\Components\Radio;
+
+Radio::make('notification_type')
+    ->options([
+        'email' => 'Email notifications',
+        'sms' => 'SMS notifications',
+        'push' => 'Push notifications',
+        'none' => 'No notifications',
+    ])
+    ->columns(2)
+    ->default('email');
+```
+
+##### 4.2.6 日期時間選擇器 (Date Time Picker)
+**功能特性：**
+- 日期、時間和日期時間選擇
+- 自定義格式和本地化
+- 範圍選擇支持
+- 時區處理
+
+**示例代碼：**
+```php
+use Filament\Forms\Components\DateTimePicker;
+use Filament\Forms\Components\DatePicker;
+use Filament\Forms\Components\TimePicker;
+
+DateTimePicker::make('published_at')
+    ->label('Publish Date & Time')
+    ->displayFormat('M j, Y g:i A')
+    ->native(false)
+    ->seconds(false)
+    ->timezone('UTC');
+
+DatePicker::make('birth_date')
+    ->label('Date of Birth')
+    ->native(false)
+    ->maxDate(now())
+    ->displayFormat('M j, Y');
+```
+
+##### 4.2.7 文件上傳 (File Upload)
+**功能特性：**
+- 單文件和多文件上傳
+- 支持拖拽上傳
+- 文件類型驗證
+- 圖片預覽和裁剪
+- 雲存儲支持
+
+**示例代碼：**
+```php
+use Filament\Forms\Components\FileUpload;
+
+FileUpload::make('avatar')
+    ->label('Profile Picture')
+    ->image()
+    ->imageEditor()
+    ->imageCropAspectRatio('1:1')
+    ->imageResizeTargetWidth('192')
+    ->imageResizeTargetHeight('192')
+    ->directory('avatars')
+    ->maxSize(5120)
+    ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp']);
+
+FileUpload::make('documents')
+    ->label('Documents')
+    ->multiple()
+    ->maxFiles(5)
+    ->acceptedFileTypes(['application/pdf', 'application/msword'])
+    ->maxSize(10240);
+```
+
+#### 4.3 高級字段組件
+
+##### 4.3.1 富文本編輯器 (Rich Editor)
+**功能特性：**
+- 基於 TipTap 的富文本編輯器
+- 可自定義工具欄按鈕
+- 支持圖片、鏈接和表格
+- 實時協作支持
+- 自定義內容驗證
+
+**示例代碼：**
+```php
+use Filament\Forms\Components\RichEditor;
+
+RichEditor::make('content')
+    ->label('Article Content')
+    ->toolbarButtons([
+        'bold',
+        'italic',
+        'underline',
+        'strike',
+        'link',
+        'bulletList',
+        'orderedList',
+        'h2',
+        'h3',
+        'blockquote',
+        'codeBlock',
+        'table',
+    ])
+    ->fileAttachmentsDisk('public')
+    ->fileAttachmentsDirectory('uploads')
+    ->fileAttachmentsVisibility('public')
+    ->columnSpanFull();
+```
+
+##### 4.3.2 Markdown 編輯器 (Markdown Editor)
+**功能特性：**
+- 支持 Markdown 語法
+- 實時預覽
+- 語法高亮
+- 自定義工具欄
+- 文件附件支持
+
+**示例代碼：**
+```php
+use Filament\Forms\Components\MarkdownEditor;
+
+MarkdownEditor::make('description')
+    ->label('Description')
+    ->toolbarButtons([
+        'bold',
+        'italic',
+        'link',
+        'bulletList',
+        'orderedList',
+        'h2',
+        'h3',
+        'blockquote',
+        'codeBlock',
+    ])
+    ->fileAttachmentsDisk('public')
+    ->fileAttachmentsDirectory('uploads');
+```
+
+##### 4.3.3 重複器 (Repeater)
+**功能特性：**
+- 動態添加/刪除字段組
+- 支持嵌套重複器
+- 自定義項目標籤
+- 條件顯示和驗證
+
+**示例代碼：**
+```php
+use Filament\Forms\Components\Repeater;
+
+Repeater::make('phone_numbers')
+    ->schema([
+        Select::make('type')
+            ->options([
+                'mobile' => 'Mobile',
+                'home' => 'Home',
+                'work' => 'Work',
+            ])
+            ->required(),
+        TextInput::make('number')
+            ->tel()
+            ->required(),
+    ])
+    ->defaultItems(1)
+    ->reorderableWithButtons()
+    ->collapsible();
+```
+
+##### 4.3.4 構建器 (Builder)
+**功能特性：**
+- 動態內容塊構建
+- 可拖拽排序
+- 自定義塊類型
+- 條件顯示和驗證
+
+**示例代碼：**
+```php
+use Filament\Forms\Components\Builder;
+
+Builder::make('content_blocks')
+    ->blocks([
+        Builder\Block::make('text')
+            ->schema([
+                TextInput::make('title')->required(),
+                RichEditor::make('content')->required(),
+            ]),
+        Builder\Block::make('image')
+            ->schema([
+                TextInput::make('title')->required(),
+                FileUpload::make('image')->image()->required(),
+                TextInput::make('alt_text'),
+            ]),
+        Builder\Block::make('video')
+            ->schema([
+                TextInput::make('title')->required(),
+                TextInput::make('video_url')->url()->required(),
+            ]),
+    ])
+    ->collapsible();
+```
+
+##### 4.3.5 標籤輸入 (Tags Input)
+**功能特性：**
+- 動態標籤添加/刪除
+- 自動完成建議
+- 自定義分隔符
+- 標籤驗證
+
+**示例代碼：**
+```php
+use Filament\Forms\Components\TagsInput;
+
+TagsInput::make('tags')
+    ->label('Article Tags')
+    ->separator(',')
+    ->suggestions([
+        'laravel',
+        'filament',
+        'php',
+        'javascript',
+        'vue',
+        'react',
+    ])
+    ->maxTags(10);
+```
+
+##### 4.3.6 多行文本 (Textarea)
+**功能特性：**
+- 多行文本輸入
+- 自動調整高度
+- 字符計數
+- 自定義行數
+
+**示例代碼：**
+```php
+use Filament\Forms\Components\Textarea;
+
+Textarea::make('description')
+    ->label('Description')
+    ->rows(5)
+    ->cols(50)
+    ->maxLength(1000)
+    ->characterCount()
+    ->placeholder('Enter a detailed description...');
+```
+
+##### 4.3.7 鍵值對 (Key Value)
+**功能特性：**
+- 動態鍵值對輸入
+- 自定義鍵和值驗證
+- 支持嵌套結構
+- 批量操作
+
+**示例代碼：**
+```php
+use Filament\Forms\Components\KeyValue;
+
+KeyValue::make('metadata')
+    ->label('Custom Metadata')
+    ->keyLabel('Property')
+    ->valueLabel('Value')
+    ->keyPlaceholder('Enter property name')
+    ->valuePlaceholder('Enter property value')
+    ->addActionLabel('Add Property')
+    ->columnSpanFull();
+```
+
+##### 4.3.8 顏色選擇器 (Color Picker)
+**功能特性：**
+- 顏色選擇和預覽
+- 支持多種顏色格式
+- 預設顏色選項
+- 自定義調色板
+
+**示例代碼：**
+```php
+use Filament\Forms\Components\ColorPicker;
+
+ColorPicker::make('theme_color')
+    ->label('Theme Color')
+    ->default('#3B82F6')
+    ->format('hex')
+    ->presetColors([
+        '#3B82F6', // Blue
+        '#EF4444', // Red
+        '#10B981', // Green
+        '#F59E0B', // Yellow
+        '#8B5CF6', // Purple
+    ]);
+```
+
+##### 4.3.9 切換按鈕 (Toggle Buttons)
+**功能特性：**
+- 按鈕組樣式的選擇器
+- 支持單選和多選
+- 自定義按鈕樣式
+- 圖標和標籤支持
+
+**示例代碼：**
+```php
+use Filament\Forms\Components\ToggleButtons;
+
+ToggleButtons::make('status')
+    ->options([
+        'draft' => 'Draft',
+        'published' => 'Published',
+        'archived' => 'Archived',
+    ])
+    ->colors([
+        'draft' => 'gray',
+        'published' => 'success',
+        'archived' => 'danger',
+    ])
+    ->icons([
+        'draft' => 'heroicon-o-pencil',
+        'published' => 'heroicon-o-check-circle',
+        'archived' => 'heroicon-o-archive-box',
+    ])
+    ->inline();
+```
+
+##### 4.3.10 滑塊 (Slider)
+**功能特性：**
+- 數值範圍選擇
+- 自定義步長和範圍
+- 實時值顯示
+- 自定義標籤
+
+**示例代碼：**
+```php
+use Filament\Forms\Components\Slider;
+
+Slider::make('rating')
+    ->label('Rating')
+    ->minValue(1)
+    ->maxValue(5)
+    ->step(0.5)
+    ->displaySteps(5)
+    ->default(3);
+```
+
+##### 4.3.11 代碼編輯器 (Code Editor)
+**功能特性：**
+- 語法高亮支持
+- 多種編程語言
+- 自動完成
+- 行號顯示
+
+**示例代碼：**
+```php
+use Filament\Forms\Components\CodeEditor;
+
+CodeEditor::make('custom_css')
+    ->label('Custom CSS')
+    ->language('css')
+    ->minHeight(200)
+    ->maxHeight(500);
+```
+
+##### 4.3.12 隱藏字段 (Hidden)
+**功能特性：**
+- 隱藏的表單字段
+- 用於存儲計算值或默認值
+- 支持動態值設置
+
+**示例代碼：**
+```php
+use Filament\Forms\Components\Hidden;
+
+Hidden::make('user_id')
+    ->default(fn () => auth()->id());
+
+Hidden::make('created_at')
+    ->default(now());
+```
+
+#### 4.4 驗證系統 (Validation)
+**功能特性：**
+- 支持所有 Laravel 驗證規則
+- 實時驗證和錯誤顯示
+- 自定義驗證消息
+- 條件驗證
+- 跨字段驗證
+
+**示例代碼：**
+```php
+TextInput::make('email')
+    ->email()
+    ->required()
+    ->unique(table: User::class, column: 'email', ignoreRecord: true)
+    ->rules([
+        'email',
+        'max:255',
+        Rule::unique('users', 'email')->ignore($this->record),
+    ])
+    ->validationMessages([
+        'email.required' => 'Email address is required.',
+        'email.email' => 'Please enter a valid email address.',
+        'email.unique' => 'This email address is already taken.',
+    ]);
+
+// 條件驗證
+TextInput::make('password')
+    ->password()
+    ->required(fn ($get) => $get('change_password'))
+    ->minLength(8)
+    ->confirmed();
+
+TextInput::make('password_confirmation')
+    ->password()
+    ->required(fn ($get) => $get('change_password'));
+```
+
+#### 4.5 自定義字段 (Custom Fields)
+**創建自定義字段：**
+- 繼承 `Filament\Forms\Components\Field`
+- 自定義渲染邏輯
+- 支持驗證和狀態管理
+- 可重用組件
+
+**示例代碼：**
+```php
+use Filament\Forms\Components\Field;
+
+class CustomField extends Field
+{
+    protected string $view = 'forms.components.custom-field';
+
+    public function getState(): mixed
+    {
+        return $this->evaluate($this->state);
+    }
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        $this->afterStateHydrated(function ($state) {
+            // 自定義狀態處理邏輯
+        });
+    }
+}
+```
+
+### 5. 信息列表 (Infolists)
+
+#### 5.1 概述
+**v4 全新功能：**
+- 用於只讀顯示記錄信息的專門系統
+- 替代傳統的詳細視圖，提供更好的用戶體驗
+- 支持多種佈局和樣式，高度可自定義
+- 基於 Schema 系統，與表單和信息列表共享組件
+- 支持響應式設計和條件顯示
+- 集成到面板資源、關係管理器和操作模態框中
+- 適用於自定義 Livewire 應用程序
+
+#### 5.2 核心概念
+
+##### 5.2.1 條目定義 (Defining Entries)
+**條目是信息列表的基本構建塊：**
+```php
+use Filament\Infolists\Components\TextEntry;
+
+TextEntry::make('name')
+    ->label('Full Name')
+    ->size(TextEntry\TextEntrySize::Large);
+```
+
+##### 5.2.2 條目內容 (Entry Content/State)
+**設置條目的內容和狀態：**
+
+**直接使用模型屬性：**
+```php
+TextEntry::make('name')  // 自動使用模型的 name 屬性
+```
+
+**自定義狀態：**
+```php
+TextEntry::make('display_name')
+    ->state(fn ($record) => "{$record->first_name} {$record->last_name}")
+```
+
+**默認狀態：**
+```php
+TextEntry::make('status')
+    ->default('No status set')
+```
+
+##### 5.2.3 條目標籤 (Entry Labels)
+**設置和自定義條目標籤：**
+
+**自定義標籤：**
+```php
+TextEntry::make('email')
+    ->label('Email Address')
+```
+
+**隱藏標籤：**
+```php
+TextEntry::make('name')
+    ->label(false)
+```
+
+**動態標籤：**
+```php
+TextEntry::make('name')
+    ->label(fn (string $state): string => str_contains($state, ' ') ? 'Full name' : 'Name')
+```
+
+##### 5.2.4 點擊條目打開 URL
+**為條目添加點擊行為：**
+```php
+TextEntry::make('email')
+    ->url(fn ($state) => "mailto:{$state}")
+    ->openUrlInNewTab();
+
+TextEntry::make('website')
+    ->url(fn ($state) => $state)
+    ->openUrlInNewTab();
+```
+
+##### 5.2.5 隱藏條目 (Hiding Entries)
+**條件性隱藏條目：**
+
+**基於記錄狀態：**
+```php
+TextEntry::make('admin_notes')
+    ->hidden(fn ($record) => $record->role !== 'admin')
+```
+
+**基於操作類型：**
+```php
+TextEntry::make('internal_id')
+    ->hidden(fn (string $operation) => $operation === 'view')
+```
+
+**基於條目狀態：**
+```php
+TextEntry::make('sensitive_data')
+    ->hidden(fn ($state) => empty($state))
+```
+
+##### 5.2.6 內聯標籤 (Inline Labels)
+**使用內聯標籤樣式：**
+
+**單個條目：**
+```php
+TextEntry::make('name')
+    ->inlineLabel()
+```
+
+**全局設置：**
+```php
+// 在服務提供者中
+TextEntry::configureUsing(function (TextEntry $entry): void {
+    $entry->inlineLabel();
+});
+```
+
+##### 5.2.7 條目工具提示 (Tooltips)
+**為條目添加工具提示：**
+```php
+TextEntry::make('status')
+    ->tooltip('Current user status')
+    ->tooltipIcon('heroicon-m-information-circle');
+```
+
+##### 5.2.8 內容對齊 (Content Alignment)
+**控制條目內容的對齊方式：**
+```php
+TextEntry::make('amount')
+    ->alignStart()    // 左對齊
+    ->alignCenter()   // 居中對齊
+    ->alignEnd()      // 右對齊
+    ->alignJustify(); // 兩端對齊
+```
+
+##### 5.2.9 添加額外內容 (Extra Content)
+**在條目的不同位置添加額外內容：**
+
+**在標籤上方：**
+```php
+TextEntry::make('name')
+    ->extraAttributes(['class' => 'font-bold'])
+    ->extraContentAbove(fn ($state) => view('components.user-avatar', ['user' => $state]));
+```
+
+**在標籤之前：**
+```php
+TextEntry::make('email')
+    ->extraContentBefore(fn ($state) => view('components.email-icon'));
+```
+
+**在標籤之後：**
+```php
+TextEntry::make('status')
+    ->extraContentAfter(fn ($state) => view('components.status-indicator', ['status' => $state]));
+```
+
+**在標籤下方：**
+```php
+TextEntry::make('description')
+    ->extraContentBelow(fn ($state) => view('components.description-helper'));
+```
+
+**在內容上方：**
+```php
+TextEntry::make('content')
+    ->extraContentAbove(fn ($state) => view('components.content-header'));
+```
+
+**在內容之前：**
+```php
+TextEntry::make('price')
+    ->extraContentBefore(fn ($state) => '$')
+```
+
+**在內容之後：**
+```php
+TextEntry::make('price')
+    ->extraContentAfter(fn ($state) => ' USD')
+```
+
+##### 5.2.10 添加 HTML 屬性 (HTML Attributes)
+**為條目添加自定義 HTML 屬性：**
+
+**為條目本身：**
+```php
+TextEntry::make('name')
+    ->extraAttributes([
+        'class' => 'font-bold text-primary',
+        'data-testid' => 'user-name',
+    ]);
+```
+
+**為條目包裝器：**
+```php
+TextEntry::make('slug')
+    ->extraEntryWrapperAttributes(['class' => 'components-locked']);
+```
+
+**動態屬性：**
+```php
+TextEntry::make('status')
+    ->extraAttributes(function ($state, $record) {
+        return [
+            'class' => $state === 'active' ? 'text-success' : 'text-danger',
+            'data-status' => $state,
+        ];
+    });
+```
+
+**合併屬性：**
+```php
+TextEntry::make('name')
+    ->extraAttributes(['class' => 'base-style'])
+    ->extraAttributes(['class' => 'additional-style'], merge: true);
+```
+
+#### 5.3 實用工具注入 (Utility Injection)
+
+##### 5.3.1 注入當前條目狀態
+**訪問條目的當前值：**
+```php
+TextEntry::make('name')
+    ->label(fn (string $state): string => "Name: {$state}")
+    ->color(fn (string $state): string => $state === 'Admin' ? 'danger' : 'primary');
+```
+
+##### 5.3.2 注入其他條目的狀態
+**獲取其他條目的值：**
+```php
+use Filament\Schemas\Components\Utilities\Get;
+
+TextEntry::make('full_name')
+    ->state(function (Get $get) {
+        $firstName = $get('first_name');
+        $lastName = $get('last_name');
+        return "{$firstName} {$lastName}";
+    });
+```
+
+##### 5.3.3 注入 Eloquent 記錄
+**訪問當前的 Eloquent 記錄：**
+```php
+use Illuminate\Database\Eloquent\Model;
+
+TextEntry::make('user_info')
+    ->state(function (?Model $record) {
+        return $record ? "User ID: {$record->id}" : 'No user';
+    });
+```
+
+##### 5.3.4 注入當前操作
+**檢查當前的操作類型：**
+```php
+TextEntry::make('editable_field')
+    ->hidden(fn (string $operation) => $operation === 'view');
+```
+
+##### 5.3.5 注入 Livewire 組件實例
+**訪問 Livewire 組件：**
+```php
+use Livewire\Component;
+
+TextEntry::make('component_data')
+    ->state(function (Component $livewire) {
+        return $livewire->someProperty;
+    });
+```
+
+##### 5.3.6 注入條目實例
+**訪問條目組件實例：**
+```php
+use Filament\Infolists\Components\Entry;
+
+TextEntry::make('dynamic_label')
+    ->label(function (Entry $component) {
+        return $component->getName() . ' Label';
+    });
+```
+
+##### 5.3.7 注入多個實用工具
+**組合多個實用工具：**
+```php
+use App\Models\User;
+use Filament\Schemas\Components\Utilities\Get;
+use Livewire\Component as Livewire;
+
+TextEntry::make('complex_data')
+    ->state(function (Livewire $livewire, Get $get, User $record) {
+        $email = $get('email');
+        $componentData = $livewire->someProperty;
+        $userId = $record->id;
+        
+        return "Email: {$email}, Component: {$componentData}, User: {$userId}";
+    });
+```
+
+##### 5.3.8 注入 Laravel 容器依賴
+**注入 Laravel 服務：**
+```php
+use App\Models\User;
+use Illuminate\Http\Request;
+
+TextEntry::make('request_data')
+    ->state(function (Request $request, User $record) {
+        return "IP: {$request->ip()}, User: {$record->name}";
+    });
+```
+
+#### 5.4 全局設置 (Global Settings)
+**為所有條目設置默認行為：**
+
+```php
+// 在 AppServiceProvider 的 boot() 方法中
+use Filament\Infolists\Components\TextEntry;
+
+TextEntry::configureUsing(function (TextEntry $entry): void {
+    $entry->words(10);  // 限制所有文本條目為10個單詞
+});
+
+// 仍然可以在個別條目中覆蓋
+TextEntry::make('full_description')
+    ->words(null);  // 不限制單詞數
+```
+
+#### 5.5 最佳實踐
+
+##### 5.5.1 性能優化
+- **避免 N+1 查詢**: 使用適當的數據庫查詢
+- **條件渲染**: 合理使用條件顯示
+- **緩存計算**: 對複雜計算進行緩存
+
+##### 5.5.2 用戶體驗
+- **清晰的標籤**: 使用描述性的標籤
+- **適當的格式**: 格式化數據以提高可讀性
+- **一致的樣式**: 保持視覺一致性
+
+##### 5.5.3 可訪問性
+- **語義化標籤**: 使用適當的 HTML 語義
+- **鍵盤導航**: 確保可通過鍵盤訪問
+- **屏幕閱讀器**: 提供適當的 ARIA 標籤
+
+#### 5.2 基礎條目組件
+
+##### 5.2.1 文本條目 (Text Entry)
+**功能特性：**
+- 文本內容顯示和格式化
+- 支持多種文本大小和樣式
+- 自動換行和截斷
+- 支持 HTML 內容
+- 可複製文本內容
+
+**示例代碼：**
+```php
+use Filament\Infolists\Components\TextEntry;
+
+TextEntry::make('name')
+    ->label('Full Name')
+    ->size(TextEntry\TextEntrySize::Large)
+    ->weight('bold')
+    ->color('primary');
+
+TextEntry::make('description')
+    ->label('Description')
+    ->html()
+    ->markdown()
+    ->prose()
+    ->limit(200)
+    ->copyable();
+
+TextEntry::make('email')
+    ->label('Email Address')
+    ->url(fn ($state) => "mailto:{$state}")
+    ->icon('heroicon-m-envelope');
+```
+
+##### 5.2.2 圖標條目 (Icon Entry)
+**功能特性：**
+- 圖標顯示和狀態指示
+- 支持多種圖標庫
+- 自定義圖標顏色和大小
+- 條件圖標顯示
+
+**示例代碼：**
+```php
+use Filament\Infolists\Components\IconEntry;
+
+IconEntry::make('status')
+    ->label('Status')
+    ->icon(fn (string $state): string => match ($state) {
+        'active' => 'heroicon-o-check-circle',
+        'inactive' => 'heroicon-o-x-circle',
+        'pending' => 'heroicon-o-clock',
+        default => 'heroicon-o-question-mark-circle',
+    })
+    ->color(fn (string $state): string => match ($state) {
+        'active' => 'success',
+        'inactive' => 'danger',
+        'pending' => 'warning',
+        default => 'gray',
+    })
+    ->size('lg');
+```
+
+##### 5.2.3 圖片條目 (Image Entry)
+**功能特性：**
+- 圖片顯示和預覽
+- 支持多種圖片格式
+- 自定義圖片大小和樣式
+- 圓形、方形等形狀選項
+- 點擊放大功能
+
+**示例代碼：**
+```php
+use Filament\Infolists\Components\ImageEntry;
+
+ImageEntry::make('avatar')
+    ->label('Profile Picture')
+    ->circular()
+    ->size(80)
+    ->extraImgAttributes(['class' => 'object-cover']);
+
+ImageEntry::make('banner')
+    ->label('Banner Image')
+    ->square()
+    ->size(200)
+    ->openUrlInNewTab()
+    ->extraImgAttributes(['class' => 'rounded-lg shadow-md']);
+```
+
+##### 5.2.4 顏色條目 (Color Entry)
+**功能特性：**
+- 顏色顯示和預覽
+- 支持多種顏色格式
+- 可複製顏色值
+- 自定義顏色顯示樣式
+
+**示例代碼：**
+```php
+use Filament\Infolists\Components\ColorEntry;
+
+ColorEntry::make('theme_color')
+    ->label('Theme Color')
+    ->copyable()
+    ->copyMessage('Color copied to clipboard!')
+    ->size('lg');
+```
+
+##### 5.2.5 代碼條目 (Code Entry)
+**功能特性：**
+- 代碼語法高亮顯示
+- 支持多種編程語言
+- 行號顯示
+- 代碼複製功能
+
+**示例代碼：**
+```php
+use Filament\Infolists\Components\CodeEntry;
+
+CodeEntry::make('custom_css')
+    ->label('Custom CSS')
+    ->language('css')
+    ->copyable()
+    ->lineNumbers();
+```
+
+##### 5.2.6 鍵值對條目 (Key Value Entry)
+**功能特性：**
+- 鍵值對數據顯示
+- 支持嵌套結構
+- 自定義鍵和值格式
+- 條件顯示
+
+**示例代碼：**
+```php
+use Filament\Infolists\Components\KeyValueEntry;
+
+KeyValueEntry::make('metadata')
+    ->label('Custom Metadata')
+    ->keyLabel('Property')
+    ->valueLabel('Value')
+    ->columnSpanFull();
+```
+
+##### 5.2.7 可重複條目 (Repeatable Entry)
+**功能特性：**
+- 重複數據結構顯示
+- 支持列表和表格格式
+- 自定義項目標籤
+- 條件顯示
+
+**示例代碼：**
+```php
+use Filament\Infolists\Components\RepeatableEntry;
+
+RepeatableEntry::make('phone_numbers')
+    ->label('Phone Numbers')
+    ->schema([
+        TextEntry::make('type')
+            ->label('Type')
+            ->badge(),
+        TextEntry::make('number')
+            ->label('Number')
+            ->url(fn ($state) => "tel:{$state}"),
+    ])
+    ->contained(false);
+```
+
+#### 5.3 高級功能
+
+##### 5.3.1 條件顯示
+**基於數據條件的動態顯示：**
+```php
+TextEntry::make('status')
+    ->label('Status')
+    ->visible(fn ($record) => $record->status !== 'draft')
+    ->color(fn ($state) => $state === 'published' ? 'success' : 'warning');
+```
+
+##### 5.3.2 自定義格式化
+**數據格式化和轉換：**
+```php
+TextEntry::make('created_at')
+    ->label('Created At')
+    ->dateTime('M j, Y g:i A')
+    ->timezone('UTC');
+
+TextEntry::make('price')
+    ->label('Price')
+    ->money('USD')
+    ->color(fn ($state) => $state > 100 ? 'success' : 'gray');
+```
+
+##### 5.3.3 關係數據顯示
+**顯示關聯模型數據：**
+```php
+TextEntry::make('user.name')
+    ->label('Created By')
+    ->url(fn ($record) => route('admin.users.edit', $record->user));
+
+TextEntry::make('category.name')
+    ->label('Category')
+    ->badge()
+    ->color('primary');
+```
+
+##### 5.3.4 自定義條目 (Custom Entries)
+**創建完全自定義的條目：**
+```php
+use Filament\Infolists\Components\Entry;
+
+class CustomEntry extends Entry
+{
+    protected string $view = 'infolists.components.custom-entry';
+
+    public function getState(): mixed
+    {
+        return $this->evaluate($this->state);
+    }
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        $this->afterStateHydrated(function ($state) {
+            // 自定義狀態處理邏輯
+        });
+    }
+}
+```
+
+#### 5.4 佈局和組織
+
+##### 5.4.1 使用 Schema 組件
+**與表單共享的佈局組件：**
+```php
+use Filament\Infolists\Components\Section;
+use Filament\Infolists\Components\Tabs;
+
+Section::make('Personal Information')
+    ->schema([
+        TextEntry::make('name'),
+        TextEntry::make('email'),
+        TextEntry::make('phone'),
+    ])
+    ->columns(3);
+
+Tabs::make('User Details')
+    ->tabs([
+        Tabs\Tab::make('Basic Info')
+            ->schema([
+                TextEntry::make('name'),
+                TextEntry::make('email'),
+            ]),
+        Tabs\Tab::make('Address')
+            ->schema([
+                TextEntry::make('street'),
+                TextEntry::make('city'),
+                TextEntry::make('postal_code'),
+            ]),
+    ]);
+```
+
+##### 5.4.2 響應式設計
+**支持響應式佈局：**
+```php
+Grid::make()
+    ->columns([
+        'default' => 1,
+        'md' => 2,
+        'xl' => 3,
+    ])
+    ->schema([
+        TextEntry::make('name')
+            ->columnSpan([
+                'default' => 1,
+                'md' => 2,
+            ]),
+        TextEntry::make('email')
+            ->columnSpan([
+                'default' => 1,
+                'md' => 1,
+            ]),
+    ]);
+```
+
+#### 5.5 最佳實踐
+
+##### 5.5.1 性能優化
+- 使用適當的數據加載策略
+- 避免 N+1 查詢問題
+- 合理使用條件顯示
+
+##### 5.5.2 用戶體驗
+- 提供清晰的標籤和描述
+- 使用適當的顏色和圖標
+- 確保響應式設計
+
+##### 5.5.3 可訪問性
+- 提供適當的 ARIA 標籤
+- 確保鍵盤導航支持
+- 使用足夠的顏色對比度
+
+### 6. 模式系統 (Schemas)
+
+#### 6.1 概述
+**v4 新概念：**
+- 統一的頁面結構定義，用於表單、信息列表和頁面佈局
+- 支持多種佈局類型，提供靈活的頁面組織方式
+- 高度可自定義，支持完全自定義的組件
+- 基於 Livewire 3 和 Alpine.js，提供響應式交互體驗
+
+#### 6.2 佈局組件 (Layouts)
+
+##### 6.2.1 網格系統 (Grid System)
+**響應式網格佈局：**
+- 使用 `columns()` 方法設置列數
+- 支持響應式斷點：`sm`, `md`, `lg`, `xl`, `2xl`
+- 支持容器查詢：`@sm`, `@md`, `@lg`, `@xl`, `@2xl`
+- 支持列跨度、列起始位置和列排序
+
+**示例代碼：**
+```php
+use Filament\Schemas\Components\Grid;
+use Filament\Forms\Components\TextInput;
+
+Grid::make()
+    ->columns([
+        'default' => 1,
+        'md' => 2,
+        'xl' => 3,
+    ])
+    ->schema([
+        TextInput::make('name')
+            ->columnSpan([
+                'default' => 1,
+                'md' => 2,
+            ]),
+        TextInput::make('email')
+            ->columnSpan([
+                'default' => 1,
+                'md' => 1,
+            ]),
+    ]);
+```
+
+##### 6.2.2 容器查詢 (Container Queries)
+**基於容器大小的響應式佈局：**
+- 使用 `gridContainer()` 方法標記容器
+- 支持 `@md` (448px+), `@lg` (512px+), `@xl` (576px+) 等斷點
+- 提供 `!@` 前綴的後備斷點支持舊瀏覽器
+
+**示例代碼：**
+```php
+Grid::make()
+    ->gridContainer()
+    ->columns([
+        '@md' => 3,
+        '@xl' => 4,
+        '!@md' => 2,  // 後備斷點
+        '!@xl' => 3,
+    ])
+    ->schema([
+        TextInput::make('name')
+            ->columnSpan([
+                '@md' => 2,
+                '@xl' => 3,
+            ])
+            ->columnOrder([
+                'default' => 2,
+                '@xl' => 1,
+            ]),
+    ]);
+```
+
+##### 6.2.3 基礎佈局組件
+
+###### 6.2.3.1 Grid 組件
+**網格佈局，支持多列響應式設計：**
+- 支持響應式斷點和容器查詢
+- 可自定義列跨度、起始位置和排序
+- 支持嵌套網格結構
+
+**示例代碼：**
+```php
+use Filament\Schemas\Components\Grid;
+use Filament\Forms\Components\TextInput;
+
+Grid::make()
+    ->columns([
+        'default' => 1,
+        'sm' => 2,
+        'md' => 3,
+        'lg' => 4,
+        'xl' => 6,
+    ])
+    ->schema([
+        TextInput::make('first_name')
+            ->columnSpan([
+                'default' => 1,
+                'md' => 2,
+                'xl' => 3,
+            ]),
+        TextInput::make('last_name')
+            ->columnSpan([
+                'default' => 1,
+                'md' => 1,
+                'xl' => 3,
+            ]),
+        TextInput::make('email')
+            ->columnSpan([
+                'default' => 1,
+                'md' => 3,
+                'xl' => 6,
+            ]),
+    ]);
+```
+
+###### 6.2.3.2 Flex 組件
+**彈性佈局，支持 flexbox 屬性：**
+- 支持 flex 方向、對齊和換行
+- 可自定義 flex 屬性
+- 適合複雜的佈局需求
+
+**示例代碼：**
+```php
+use Filament\Schemas\Components\Flex;
+use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\Button;
+
+Flex::make()
+    ->direction('row')
+    ->justifyContent('space-between')
+    ->alignItems('center')
+    ->schema([
+        TextInput::make('search')
+            ->placeholder('Search...')
+            ->flex(1),
+        Button::make('Search')
+            ->type('submit'),
+    ]);
+```
+
+###### 6.2.3.3 Fieldset 組件
+**字段集，用於分組相關字段：**
+- 提供視覺分組和邊框
+- 支持標題和描述
+- 可自定義列數和樣式
+
+**示例代碼：**
+```php
+use Filament\Schemas\Components\Fieldset;
+
+Fieldset::make('Personal Information')
+    ->label('Personal Information')
+    ->description('Enter your personal details below.')
+    ->schema([
+        TextInput::make('first_name'),
+        TextInput::make('last_name'),
+        TextInput::make('email'),
+    ])
+    ->columns(3)
+    ->collapsible()
+    ->collapsed();
+```
+
+**移除 Fieldset 邊框：**
+```php
+Fieldset::make('Personal Information')
+    ->schema([
+        TextInput::make('first_name'),
+        TextInput::make('last_name'),
+    ])
+    ->columns(2)
+    ->border(false); // 移除邊框
+```
+
+###### 6.2.3.4 Section 組件
+**區塊，提供標題和描述的內容分組：**
+- 支持標題、描述和圖標
+- 可折疊/展開
+- 支持自定義樣式
+
+**示例代碼：**
+```php
+use Filament\Schemas\Components\Section;
+
+Section::make('Personal Information')
+    ->description('Enter your personal details below.')
+    ->icon('heroicon-o-user')
+    ->schema([
+        TextInput::make('name'),
+        TextInput::make('email'),
+        TextInput::make('phone'),
+    ])
+    ->columns(3)
+    ->collapsible()
+    ->collapsed();
+```
+
+#### 6.2.4 網格列控制
+
+##### 6.2.4.1 列跨度 (Column Span)
+**控制組件跨越的列數：**
+```php
+TextInput::make('name')
+    ->columnSpan([
+        'default' => 1,  // 默認設備
+        'sm' => 2,       // 小設備
+        'md' => 3,       // 中等設備
+        'lg' => 4,       // 大設備
+        'xl' => 6,       // 超大設備
+    ]);
+```
+
+##### 6.2.4.2 列起始位置 (Column Start)
+**控制組件開始的列位置：**
+```php
+TextInput::make('name')
+    ->columnStart([
+        'default' => 1,
+        'md' => 2,  // 從第2列開始
+        'xl' => 3,  // 從第3列開始
+    ]);
+```
+
+##### 6.2.4.3 列排序 (Column Order)
+**控制組件的顯示順序：**
+```php
+TextInput::make('name')
+    ->columnOrder([
+        'default' => 2,  // 默認第2個顯示
+        'md' => 1,       // 中等設備第1個顯示
+        'xl' => 3,       // 超大設備第3個顯示
+    ]);
+
+TextInput::make('email')
+    ->columnOrder([
+        'default' => 1,  // 默認第1個顯示
+        'md' => 2,       // 中等設備第2個顯示
+        'xl' => 1,       // 超大設備第1個顯示
+    ]);
+```
+
+#### 6.2.5 響應式網格佈局示例
+**完整的響應式佈局示例：**
+```php
+use Filament\Schemas\Components\Grid;
+use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\Select;
+use Filament\Forms\Components\Textarea;
+
+Grid::make()
+    ->columns([
+        'default' => 1,
+        'sm' => 2,
+        'md' => 3,
+        'lg' => 4,
+    ])
+    ->schema([
+        // 姓名字段 - 在小設備上佔2列，大設備上佔2列
+        TextInput::make('first_name')
+            ->label('First Name')
+            ->columnSpan([
+                'default' => 1,
+                'sm' => 2,
+                'lg' => 2,
+            ]),
+        
+        // 姓氏字段 - 在小設備上佔2列，大設備上佔2列
+        TextInput::make('last_name')
+            ->label('Last Name')
+            ->columnSpan([
+                'default' => 1,
+                'sm' => 2,
+                'lg' => 2,
+            ]),
+        
+        // 電子郵件 - 在所有設備上都佔滿寬度
+        TextInput::make('email')
+            ->label('Email Address')
+            ->columnSpan([
+                'default' => 1,
+                'sm' => 2,
+                'md' => 3,
+                'lg' => 4,
+            ]),
+        
+        // 電話號碼 - 在中等設備上佔2列
+        TextInput::make('phone')
+            ->label('Phone Number')
+            ->columnSpan([
+                'default' => 1,
+                'md' => 2,
+            ]),
+        
+        // 國家選擇 - 在中等設備上佔1列
+        Select::make('country')
+            ->label('Country')
+            ->options([
+                'us' => 'United States',
+                'ca' => 'Canada',
+                'uk' => 'United Kingdom',
+            ])
+            ->columnSpan([
+                'default' => 1,
+                'md' => 1,
+            ]),
+        
+        // 地址 - 在所有設備上都佔滿寬度
+        Textarea::make('address')
+            ->label('Address')
+            ->columnSpan([
+                'default' => 1,
+                'sm' => 2,
+                'md' => 3,
+                'lg' => 4,
+            ]),
+    ]);
+```
+
+#### 6.2.6 容器查詢 (Container Queries)
+**基於容器大小的響應式佈局：**
+
+##### 6.2.6.1 基本容器查詢
+```php
+Grid::make()
+    ->gridContainer()  // 標記為容器
+    ->columns([
+        '@sm' => 2,   // 容器寬度 ≥ 384px
+        '@md' => 3,   // 容器寬度 ≥ 448px
+        '@lg' => 4,   // 容器寬度 ≥ 512px
+        '@xl' => 6,   // 容器寬度 ≥ 576px
+    ])
+    ->schema([
+        TextInput::make('name')
+            ->columnSpan([
+                '@md' => 2,
+                '@xl' => 3,
+            ]),
+        TextInput::make('email')
+            ->columnSpan([
+                '@md' => 1,
+                '@xl' => 3,
+            ]),
+    ]);
+```
+
+##### 6.2.6.2 容器查詢與列排序
+```php
+Grid::make()
+    ->gridContainer()
+    ->columns([
+        '@md' => 3,
+        '@xl' => 4,
+    ])
+    ->schema([
+        TextInput::make('name')
+            ->columnSpan([
+                '@md' => 2,
+                '@xl' => 3,
+            ])
+            ->columnOrder([
+                'default' => 2,  // 默認第2個
+                '@xl' => 1,      // 超大容器第1個
+            ]),
+        TextInput::make('email')
+            ->columnSpan([
+                'default' => 1,
+                '@xl' => 1,
+            ])
+            ->columnOrder([
+                'default' => 1,  // 默認第1個
+                '@xl' => 2,      // 超大容器第2個
+            ]),
+    ]);
+```
+
+##### 6.2.6.3 後備斷點支持舊瀏覽器
+```php
+Grid::make()
+    ->gridContainer()
+    ->columns([
+        '@md' => 3,    // 容器查詢
+        '@xl' => 4,    // 容器查詢
+        '!@md' => 2,   // 後備斷點
+        '!@xl' => 3,   // 後備斷點
+    ])
+    ->schema([
+        TextInput::make('name')
+            ->columnSpan([
+                '@md' => 2,
+                '@xl' => 3,
+                '!@md' => 2,
+                '!@xl' => 2,
+            ])
+            ->columnOrder([
+                'default' => 2,
+                '@xl' => 1,
+                '!@xl' => 1,
+            ]),
+        TextInput::make('email')
+            ->columnOrder([
+                'default' => 1,
+                '@xl' => 2,
+                '!@xl' => 2,
+            ]),
+    ]);
+```
+
+#### 6.2.7 添加額外 HTML 屬性
+**為佈局組件添加自定義屬性：**
+
+##### 6.2.7.1 靜態屬性
+```php
+Section::make('Personal Information')
+    ->extraAttributes([
+        'class' => 'custom-section-style',
+        'data-testid' => 'personal-info-section',
+    ])
+    ->schema([
+        TextInput::make('name'),
+        TextInput::make('email'),
+    ]);
+```
+
+##### 6.2.7.2 動態屬性
+```php
+Section::make('Dynamic Section')
+    ->extraAttributes(function ($get, $operation, $record) {
+        return [
+            'class' => $operation === 'create' ? 'create-mode' : 'edit-mode',
+            'data-user-id' => $record?->id,
+            'data-operation' => $operation,
+        ];
+    })
+    ->schema([
+        TextInput::make('name'),
+        TextInput::make('email'),
+    ]);
+```
+
+##### 6.2.7.3 合併屬性
+```php
+Section::make('Merged Section')
+    ->extraAttributes(['class' => 'base-style'])
+    ->extraAttributes(['class' => 'additional-style'], merge: true)
+    ->schema([
+        TextInput::make('name'),
+        TextInput::make('email'),
+    ]);
+```
+
+#### 6.2.8 佈局最佳實踐
+
+##### 6.2.8.1 響應式設計原則
+- **移動優先**: 從最小屏幕開始設計
+- **漸進增強**: 為大屏幕添加更多列
+- **一致性**: 保持跨設備的視覺一致性
+- **可讀性**: 確保文本在小屏幕上仍然可讀
+
+##### 6.2.8.2 性能優化
+- **避免過度嵌套**: 限制網格嵌套深度
+- **合理使用列數**: 避免在小屏幕上使用過多列
+- **條件渲染**: 使用條件顯示減少不必要的組件
+
+##### 6.2.8.3 可訪問性
+- **鍵盤導航**: 確保所有組件都可以通過鍵盤訪問
+- **屏幕閱讀器**: 提供適當的 ARIA 標籤
+- **顏色對比**: 確保足夠的顏色對比度
+
+##### 6.2.8.4 代碼組織
+- **邏輯分組**: 將相關字段組織在一起
+- **命名約定**: 使用一致的命名約定
+- **註釋**: 為複雜佈局添加註釋
+
+#### 6.3 區塊組件 (Sections)
+**內容分組和組織：**
+- 提供標題、描述和圖標
+- 支持折疊/展開功能
+- 可自定義樣式和行為
+- 支持條件顯示
+
+**示例代碼：**
+```php
+use Filament\Schemas\Components\Section;
+
+Section::make('Personal Information')
+    ->description('Enter your personal details below.')
+    ->icon('heroicon-o-user')
+    ->schema([
+        TextInput::make('name'),
+        TextInput::make('email'),
+        TextInput::make('phone'),
+    ])
+    ->collapsible()
+    ->collapsed();
+```
+
+#### 6.4 標籤組件 (Tabs)
+**標籤式導航和內容組織：**
+- 支持水平、垂直和圖標標籤
+- 可自定義標籤樣式和行為
+- 支持條件標籤顯示
+- 支持標籤內容的動態加載
+
+**示例代碼：**
+```php
+use Filament\Schemas\Components\Tabs;
+
+Tabs::make('User Information')
+    ->tabs([
+        Tabs\Tab::make('Personal')
+            ->icon('heroicon-o-user')
+            ->schema([
+                TextInput::make('name'),
+                TextInput::make('email'),
+            ]),
+        Tabs\Tab::make('Address')
+            ->icon('heroicon-o-map-pin')
+            ->schema([
+                TextInput::make('street'),
+                TextInput::make('city'),
+                TextInput::make('postal_code'),
+            ]),
+        Tabs\Tab::make('Settings')
+            ->icon('heroicon-o-cog-6-tooth')
+            ->schema([
+                Toggle::make('notifications'),
+                Toggle::make('newsletter'),
+            ]),
+    ]);
+```
+
+#### 6.5 嚮導組件 (Wizards)
+**步驟式表單和流程：**
+- 支持多步驟表單
+- 可自定義步驟驗證
+- 支持步驟間的數據持久化
+- 提供進度指示器
+
+**示例代碼：**
+```php
+use Filament\Schemas\Components\Wizard;
+
+Wizard::make([
+    Wizard\Step::make('Personal Information')
+        ->schema([
+            TextInput::make('name'),
+            TextInput::make('email'),
+        ])
+        ->validation([
+            'name' => 'required|min:2',
+            'email' => 'required|email',
+        ]),
+    Wizard\Step::make('Address')
+        ->schema([
+            TextInput::make('street'),
+            TextInput::make('city'),
+        ]),
+    Wizard\Step::make('Review')
+        ->schema([
+            // 只讀字段顯示
+        ]),
+]);
+```
+
+#### 6.6 核心組件 (Prime Components)
+**基礎 UI 組件：**
+- **Text**: 文本顯示組件
+- **Image**: 圖片顯示組件
+- **Icon**: 圖標顯示組件
+- **Badge**: 徽章組件
+- **Button**: 按鈕組件
+- **Link**: 鏈接組件
+
+**示例代碼：**
+```php
+use Filament\Schemas\Components\Text;
+use Filament\Schemas\Components\Image;
+use Filament\Schemas\Components\Badge;
+
+Text::make('Welcome to our platform!')
+    ->size('lg')
+    ->weight('bold');
+
+Image::make('logo')
+    ->src('/images/logo.png')
+    ->alt('Company Logo');
+
+Badge::make('status')
+    ->color('success')
+    ->label('Active');
+```
+
+#### 6.7 自定義組件 (Custom Components)
+**完全自定義的組件：**
+- 繼承 `Filament\Schemas\Components\Component`
+- 支持自定義渲染邏輯
+- 可注入各種實用工具
+- 支持響應式設計
+
+**示例代碼：**
+```php
+use Filament\Schemas\Components\Component;
+
+class CustomComponent extends Component
+{
+    public static function make(): static
+    {
+        return app(static::class);
+    }
+
+    public function render(): View
+    {
+        return view('components.custom-component');
+    }
+}
+```
+
+#### 6.8 實用工具注入
+**可注入的實用工具：**
+- **$component**: 當前組件實例
+- **$get**: 獲取模式數據的函數
+- **$livewire**: Livewire 組件實例
+- **$model**: Eloquent 模型 FQN
+- **$operation**: 當前操作 (create, edit, view)
+- **$record**: Eloquent 記錄實例
+
+**示例代碼：**
+```php
+Section::make('Dynamic Content')
+    ->schema([
+        TextInput::make('title')
+            ->visible(fn ($get, $operation, $record) => 
+                $operation === 'create' || $record?->status === 'draft'
+            ),
+    ]);
+```
+
+### 7. 操作系統 (Actions)
+
+#### 7.1 概述
+**v4 操作系統特點：**
+- 支持多種操作類型和觸發方式
+- 模態框和全頁面操作支持
+- 操作分組和組織功能
+- 高度可自定義的操作邏輯
+- 支持批量操作和單個記錄操作
+- 實時反饋和通知系統
+
+#### 7.2 基礎操作類型
+
+##### 7.2.1 創建操作 (Create Action)
+**功能特性：**
+- 創建新記錄的表單操作
+- 支持自定義表單和驗證
+- 可自定義重定向和通知
+- 支持創建後的操作鏈
+
+**示例代碼：**
+```php
+use Filament\Actions\CreateAction;
+
+CreateAction::make()
+    ->label('Create New User')
+    ->icon('heroicon-o-plus')
+    ->form([
+        TextInput::make('name')->required(),
+        TextInput::make('email')->email()->required(),
+        Select::make('role')->options([
+            'admin' => 'Administrator',
+            'user' => 'User',
+        ])->required(),
+    ])
+    ->action(function (array $data) {
+        $user = User::create($data);
+        
+        // 發送歡迎郵件
+        Mail::to($user->email)->send(new WelcomeMail($user));
+        
+        return $user;
+    })
+    ->successNotification(
+        Notification::make()
+            ->success()
+            ->title('User created successfully')
+            ->body('The user has been created and a welcome email has been sent.')
+    )
+    ->after(function ($record) {
+        // 創建後的操作
+        activity()->log("Created user: {$record->name}");
+    });
+```
+
+##### 7.2.2 編輯操作 (Edit Action)
+**功能特性：**
+- 編輯現有記錄的表單操作
+- 支持自定義表單和驗證
+- 可自定義保存邏輯
+- 支持編輯後的操作
+
+**示例代碼：**
+```php
+use Filament\Actions\EditAction;
+
+EditAction::make()
+    ->label('Edit User')
+    ->icon('heroicon-o-pencil')
+    ->form([
+        TextInput::make('name')->required(),
+        TextInput::make('email')->email()->required(),
+        Select::make('role')->options([
+            'admin' => 'Administrator',
+            'user' => 'User',
+        ])->required(),
+    ])
+    ->action(function (array $data, $record) {
+        $record->update($data);
+        
+        // 記錄變更
+        activity()->log("Updated user: {$record->name}");
+        
+        return $record;
+    })
+    ->successNotification(
+        Notification::make()
+            ->success()
+            ->title('User updated successfully')
+            ->body('The user information has been updated.')
+    );
+```
+
+##### 7.2.3 查看操作 (View Action)
+**功能特性：**
+- 只讀記錄顯示操作
+- 使用 Infolist 組件顯示數據
+- 支持自定義佈局和樣式
+- 可添加自定義操作按鈕
+
+**示例代碼：**
+```php
+use Filament\Actions\ViewAction;
+
+ViewAction::make()
+    ->label('View Details')
+    ->icon('heroicon-o-eye')
+    ->infolist([
+        TextEntry::make('name')->label('Full Name'),
+        TextEntry::make('email')->label('Email Address'),
+        TextEntry::make('role')->label('Role')->badge(),
+        TextEntry::make('created_at')->label('Created At')->dateTime(),
+    ])
+    ->modalHeading('User Details')
+    ->modalDescription('View detailed information about this user.')
+    ->modalSubmitAction(false) // 隱藏提交按鈕
+    ->modalCancelActionLabel('Close');
+```
+
+##### 7.2.4 刪除操作 (Delete Action)
+**功能特性：**
+- 刪除記錄的確認操作
+- 支持軟刪除和硬刪除
+- 可自定義刪除邏輯
+- 支持批量刪除
+
+**示例代碼：**
+```php
+use Filament\Actions\DeleteAction;
+
+DeleteAction::make()
+    ->label('Delete User')
+    ->icon('heroicon-o-trash')
+    ->color('danger')
+    ->requiresConfirmation()
+    ->modalHeading('Delete User')
+    ->modalDescription('Are you sure you want to delete this user? This action cannot be undone.')
+    ->modalSubmitActionLabel('Yes, delete user')
+    ->action(function ($record) {
+        // 自定義刪除邏輯
+        if ($record->hasActiveOrders()) {
+            throw new \Exception('Cannot delete user with active orders.');
+        }
+        
+        $record->delete();
+        
+        // 記錄刪除操作
+        activity()->log("Deleted user: {$record->name}");
+    })
+    ->successNotification(
+        Notification::make()
+            ->success()
+            ->title('User deleted successfully')
+            ->body('The user has been permanently deleted.')
+    );
+```
+
+##### 7.2.5 複製操作 (Replicate Action)
+**功能特性：**
+- 複製現有記錄
+- 支持自定義複製邏輯
+- 可選擇要複製的字段
+- 支持關係數據複製
+
+**示例代碼：**
+```php
+use Filament\Actions\ReplicateAction;
+
+ReplicateAction::make()
+    ->label('Duplicate User')
+    ->icon('heroicon-o-document-duplicate')
+    ->form([
+        TextInput::make('name')->required(),
+        TextInput::make('email')->email()->required(),
+        Checkbox::make('copy_permissions')->label('Copy user permissions'),
+    ])
+    ->action(function (array $data, $record) {
+        $newUser = $record->replicate();
+        $newUser->name = $data['name'];
+        $newUser->email = $data['email'];
+        $newUser->save();
+        
+        // 複製權限
+        if ($data['copy_permissions']) {
+            $newUser->permissions()->attach($record->permissions);
+        }
+        
+        return $newUser;
+    })
+    ->successNotification(
+        Notification::make()
+            ->success()
+            ->title('User duplicated successfully')
+            ->body('A new user has been created based on the original.')
+    );
+```
+
+##### 7.2.6 強制刪除操作 (Force Delete Action)
+**功能特性：**
+- 永久刪除軟刪除的記錄
+- 繞過軟刪除保護
+- 支持批量強制刪除
+- 可自定義刪除邏輯
+
+**示例代碼：**
+```php
+use Filament\Actions\ForceDeleteAction;
+
+ForceDeleteAction::make()
+    ->label('Permanently Delete')
+    ->icon('heroicon-o-trash')
+    ->color('danger')
+    ->requiresConfirmation()
+    ->modalHeading('Permanently Delete User')
+    ->modalDescription('This will permanently delete the user and all associated data. This action cannot be undone.')
+    ->modalSubmitActionLabel('Yes, permanently delete')
+    ->visible(fn ($record) => $record->trashed())
+    ->action(function ($record) {
+        $record->forceDelete();
+        
+        activity()->log("Permanently deleted user: {$record->name}");
+    });
+```
+
+##### 7.2.7 恢復操作 (Restore Action)
+**功能特性：**
+- 恢復軟刪除的記錄
+- 支持批量恢復
+- 可自定義恢復邏輯
+- 自動處理時間戳
+
+**示例代碼：**
+```php
+use Filament\Actions\RestoreAction;
+
+RestoreAction::make()
+    ->label('Restore User')
+    ->icon('heroicon-o-arrow-path')
+    ->color('success')
+    ->visible(fn ($record) => $record->trashed())
+    ->action(function ($record) {
+        $record->restore();
+        
+        activity()->log("Restored user: {$record->name}");
+    })
+    ->successNotification(
+        Notification::make()
+            ->success()
+            ->title('User restored successfully')
+            ->body('The user has been restored and is now active again.')
+    );
+```
+
+##### 7.2.8 導入操作 (Import Action)
+**功能特性：**
+- 批量導入記錄
+- 支持多種文件格式
+- 可自定義導入邏輯
+- 錯誤處理和報告
+
+**示例代碼：**
+```php
+use Filament\Actions\ImportAction;
+
+ImportAction::make()
+    ->label('Import Users')
+    ->icon('heroicon-o-arrow-up-tray')
+    ->form([
+        FileUpload::make('file')
+            ->label('CSV File')
+            ->acceptedFileTypes(['text/csv'])
+            ->required(),
+        Checkbox::make('skip_duplicates')
+            ->label('Skip duplicate emails')
+            ->default(true),
+    ])
+    ->action(function (array $data) {
+        $file = $data['file'];
+        $skipDuplicates = $data['skip_duplicates'];
+        
+        $imported = 0;
+        $skipped = 0;
+        
+        foreach (Csv::fromFile($file) as $row) {
+            if ($skipDuplicates && User::where('email', $row['email'])->exists()) {
+                $skipped++;
+                continue;
+            }
+            
+            User::create([
+                'name' => $row['name'],
+                'email' => $row['email'],
+                'role' => $row['role'] ?? 'user',
+            ]);
+            
+            $imported++;
+        }
+        
+        return [
+            'imported' => $imported,
+            'skipped' => $skipped,
+        ];
+    })
+    ->successNotification(
+        Notification::make()
+            ->success()
+            ->title('Import completed')
+            ->body(fn ($data) => "Imported {$data['imported']} users, skipped {$data['skipped']} duplicates.")
+    );
+```
+
+##### 7.2.9 導出操作 (Export Action)
+**功能特性：**
+- 批量導出記錄
+- 支持多種文件格式
+- 可自定義導出字段
+- 過濾和排序支持
+
+**示例代碼：**
+```php
+use Filament\Actions\ExportAction;
+
+ExportAction::make()
+    ->label('Export Users')
+    ->icon('heroicon-o-arrow-down-tray')
+    ->form([
+        Select::make('format')
+            ->options([
+                'csv' => 'CSV',
+                'xlsx' => 'Excel',
+                'json' => 'JSON',
+            ])
+            ->default('csv')
+            ->required(),
+        CheckboxList::make('fields')
+            ->options([
+                'name' => 'Name',
+                'email' => 'Email',
+                'role' => 'Role',
+                'created_at' => 'Created At',
+            ])
+            ->default(['name', 'email', 'role'])
+            ->required(),
+    ])
+    ->action(function (array $data) {
+        $users = User::select($data['fields'])->get();
+        
+        return match ($data['format']) {
+            'csv' => $users->toCsv(),
+            'xlsx' => $users->toExcel(),
+            'json' => $users->toJson(),
+        };
+    })
+    ->successNotification(
+        Notification::make()
+            ->success()
+            ->title('Export completed')
+            ->body('Your file has been generated and is ready for download.')
+    );
+```
+
+#### 7.3 高級功能
+
+##### 7.3.1 操作分組 (Action Groups)
+**組織相關操作：**
+```php
+use Filament\Actions\ActionGroup;
+
+ActionGroup::make([
+    ViewAction::make(),
+    EditAction::make(),
+    DeleteAction::make(),
+])
+    ->label('Actions')
+    ->icon('heroicon-m-ellipsis-vertical')
+    ->color('gray')
+    ->dropdownPlacement('bottom-end');
+```
+
+##### 7.3.2 批量操作 (Bulk Actions)
+**對多個記錄執行操作：**
+```php
+use Filament\Actions\BulkActionGroup;
+use Filament\Actions\BulkAction;
+
+BulkActionGroup::make([
+    BulkAction::make('activate')
+        ->label('Activate Selected')
+        ->icon('heroicon-o-check-circle')
+        ->color('success')
+        ->action(function ($records) {
+            $records->each->update(['is_active' => true]);
+        }),
+    BulkAction::make('deactivate')
+        ->label('Deactivate Selected')
+        ->icon('heroicon-o-x-circle')
+        ->color('danger')
+        ->action(function ($records) {
+            $records->each->update(['is_active' => false]);
+        }),
+    BulkAction::make('delete')
+        ->label('Delete Selected')
+        ->icon('heroicon-o-trash')
+        ->color('danger')
+        ->requiresConfirmation()
+        ->action(function ($records) {
+            $records->each->delete();
+        }),
+]);
+```
+
+##### 7.3.3 條件操作 (Conditional Actions)
+**基於記錄狀態顯示操作：**
+```php
+EditAction::make()
+    ->visible(fn ($record) => $record->status !== 'archived')
+    ->disabled(fn ($record) => $record->is_locked);
+
+DeleteAction::make()
+    ->visible(fn ($record) => auth()->user()->can('delete', $record))
+    ->requiresConfirmation(fn ($record) => $record->has_important_data);
+```
+
+##### 7.3.4 自定義操作 (Custom Actions)
+**創建完全自定義的操作：**
+```php
+use Filament\Actions\Action;
+
+Action::make('send_notification')
+    ->label('Send Notification')
+    ->icon('heroicon-o-bell')
+    ->color('warning')
+    ->form([
+        TextInput::make('subject')->required(),
+        Textarea::make('message')->required(),
+    ])
+    ->action(function (array $data, $record) {
+        $record->notify(new CustomNotification($data['subject'], $data['message']));
+    })
+    ->successNotification(
+        Notification::make()
+            ->success()
+            ->title('Notification sent')
+            ->body('The notification has been sent successfully.')
+    );
+```
+
+#### 7.4 最佳實踐
+
+##### 7.4.1 性能優化
+- 使用適當的數據庫查詢
+- 避免 N+1 查詢問題
+- 合理使用批量操作
+
+##### 7.4.2 用戶體驗
+- 提供清晰的確認對話框
+- 使用適當的圖標和顏色
+- 提供詳細的成功/錯誤消息
+
+##### 7.4.3 安全性
+- 實施適當的權限檢查
+- 驗證所有用戶輸入
+- 記錄重要操作
+
+### 8. 通知系統 (Notifications)
+
+#### 8.1 概述
+**v4 新功能：**
+- **數據庫通知**: 持久化通知存儲
+- **廣播通知**: 實時通知推送
+- 支持多種通知類型
+
+#### 8.2 通知類型
+- 成功通知
+- 錯誤通知
+- 警告通知
+- 信息通知
+
+### 9. 小部件系統 (Widgets)
+
+#### 9.1 概述
+**v4 增強功能：**
+- **統計概覽小部件**: 數字統計顯示
+- **圖表小部件**: 各種圖表類型
+- 完全自定義的小部件支持
+
+#### 9.2 小部件類型
+- **Stats Overview Widget**: 統計概覽
+- **Chart Widget**: 圖表小部件
+- **Custom Widget**: 自定義小部件
+
+### 10. 導航系統 (Navigation)
+
+#### 10.1 概述
+**v4 新功能：**
+- **自定義頁面**: 完全自定義的頁面
+- **用戶菜單**: 可自定義的用戶下拉菜單
+- **集群**: 相關頁面的分組
+
+### 11. 用戶管理 (Users)
+
+#### 11.1 概述
+**v4 增強功能：**
+- **多因素認證**: 支持 2FA
+- **多租戶**: 支持多租戶架構
+
+### 12. 樣式自定義
+
+#### 12.1 CSS Hooks
+- 提供標準化的 CSS 類名
+- 支持深色模式
+- 響應式設計支持
+
+#### 12.2 顏色系統
+- 可自定義的主題顏色
+- 支持 CSS 變量
+- 一致的顏色命名規範
+
+#### 12.3 圖標系統
+- 支持多種圖標庫
+- 可自定義圖標
+- 一致的圖標使用規範
+
+### 13. 高級功能
+
+#### 13.1 渲染鉤子 (Render Hooks)
+- 自定義組件渲染點
+- 靈活的內容注入
+- 強大的擴展能力
+
+#### 13.2 資源註冊
+- 自動資源發現
+- 手動資源註冊
+- 條件資源顯示
+
+#### 13.3 文件生成
+- 自動生成資源文件
+- 自定義生成器
+- 批量文件操作
+
+### 14. 測試
+
+#### 14.1 測試資源
+- 資源功能測試
+- 表單驗證測試
+- 操作測試
+
+#### 14.2 測試表格
+- 列測試
+- 過濾器測試
+- 操作測試
+
+#### 14.3 測試模式
+- 表單測試
+- 驗證測試
+- 自定義組件測試
+
+### 15. 插件系統
+
+#### 15.1 插件開發
+- 面板插件
+- 獨立插件
+- 插件市場
+
+#### 15.2 構建插件
+- 插件結構
+- 資源註冊
+- 資產管理
+
+### 16. 組件庫
+
+#### 16.1 Blade 組件
+- Avatar (頭像)
+- Badge (徽章)
+- Breadcrumbs (麵包屑)
+- Button (按鈕)
+- Checkbox (複選框)
+- Dropdown (下拉菜單)
+- Fieldset (字段集)
+- Icon button (圖標按鈕)
+- Input wrapper (輸入包裝器)
+- Input (輸入框)
+- Link (鏈接)
+- Loading indicator (加載指示器)
+- Modal (模態框)
+- Pagination (分頁)
+- Section (區塊)
+- Select (選擇器)
+- Tabs (標籤頁)
+
+#### 16.2 組件渲染
+- 在 Livewire 組件中渲染操作
+- 在 Blade 視圖中渲染表單
+- 在 Blade 視圖中渲染信息列表
+- 在面板外渲染通知
+- 在 Blade 視圖中渲染模式
+- 在 Blade 視圖中渲染表格
+- 在 Blade 視圖中渲染小部件
+
+### 17. 生產部署
+
+#### 17.1 性能優化
+- 資源壓縮
+- 緩存策略
+- 數據庫優化
+
+#### 17.2 安全考慮
+- 認證配置
+- 權限管理
+- 數據驗證
+
+### 18. 升級指南
+
+#### 18.1 從 v3 升級
+- 主要變化概述
+- 遷移步驟
+- 常見問題解決
+
+#### 18.2 兼容性
+- PHP 版本要求
+- Laravel 版本要求
+- 瀏覽器支持
+
+## 安裝和配置
+
+### 基本安裝
+```bash
+composer require filament/filament:"^4.0"
+php artisan filament:install --panels
+```
+
+### 創建面板
+```bash
+php artisan make:filament-panel admin
+```
+
+### 創建資源
+```bash
+php artisan make:filament-resource User
+```
+
+### 創建小部件
+```bash
+php artisan make:filament-widget StatsOverview
+```
+
+## 最佳實踐
+
+### 1. 代碼組織
+- 使用適當的命名空間
+- 遵循 PSR 標準
+- 保持代碼簡潔
+
+### 2. 性能優化
+- 使用適當的數據庫查詢
+- 實現緩存策略
+- 優化資源加載
+
+### 3. 用戶體驗
+- 提供清晰的導航
+- 使用一致的設計語言
+- 實現響應式設計
+
+### 4. 安全性
+- 實施適當的權限控制
+- 驗證所有用戶輸入
+- 保護敏感數據
+
+## 常見問題
+
+### 1. 性能問題
+- 檢查數據庫查詢
+- 優化資源加載
+- 使用適當的緩存
+
+### 2. 樣式問題
+- 檢查 CSS 衝突
+- 使用正確的 CSS 類名
+- 確保響應式設計
+
+### 3. 功能問題
+- 檢查配置設置
+- 查看錯誤日誌
+- 參考官方文檔
+
+## 參考資源
+
+- [官方文檔](https://filamentphp.com/docs/4.x)
+- [GitHub 倉庫](https://github.com/filamentphp/filament)
+- [社區論壇](https://filamentphp.com/community)
+- [插件市場](https://filamentphp.com/plugins)
+
+## 結語
+
+Filament v4 是一個功能強大且靈活的 Laravel 管理面板構建器。通過本文檔，您應該能夠了解 v4 的新功能和改進，並開始構建您自己的管理應用程序。
+
+記住，Filament 是一個活躍的開源項目，定期會有更新和新功能。建議定期查看官方文檔以獲取最新信息。
+
+### 19. 關係管理 (Managing Relationships)
+
+#### 19.1 概述
+**選擇合適的工具：**
+Filament 提供了多種管理關係的方式，選擇哪種功能取決於您要管理的關係類型和所需的 UI。
+
+#### 19.2 關係管理工具
+
+##### 19.2.1 關係管理器 (Relation Managers)
+**適用於：** `HasMany`, `HasManyThrough`, `BelongsToMany`, `MorphMany`, `MorphToMany` 關係
+**特點：** 在資源表單下方的互動式表格
+
+**創建關係管理器：**
+```bash
+php artisan make:filament-relation-manager CategoryResource posts title
+```
+
+**基本結構：**
+```php
+use Filament\Resources\RelationManagers\RelationManager;
+use Filament\Tables;
+use Filament\Tables\Table;
+
+class PostsRelationManager extends RelationManager
+{
+    protected static string $relationship = 'posts';
+    protected static ?string $recordTitleAttribute = 'title';
+
+    public function table(Table $table): Table
+    {
+        return $table
+            ->columns([
+                Tables\Columns\TextColumn::make('title'),
+                Tables\Columns\TextColumn::make('created_at'),
+            ])
+            ->filters([
+                //
+            ])
+            ->headerActions([
+                Tables\Actions\CreateAction::make(),
+            ])
+            ->actions([
+                Tables\Actions\EditAction::make(),
+                Tables\Actions\DeleteAction::make(),
+            ])
+            ->bulkActions([
+                Tables\Actions\BulkActionGroup::make([
+                    Tables\Actions\DeleteBulkAction::make(),
+                ]),
+            ]);
+    }
+
+    public function form(Schema $schema): Schema
+    {
+        return $schema
+            ->components([
+                Forms\Components\TextInput::make('title')
+                    ->required()
+                    ->maxLength(255),
+                Forms\Components\Textarea::make('content')
+                    ->required()
+                    ->maxLength(65535)
+                    ->columnSpanFull(),
+            ]);
+    }
+}
+```
+
+**註冊關係管理器：**
+```php
+public static function getRelations(): array
+{
+    return [
+        PostsRelationManager::class,
+    ];
+}
+```
+
+##### 19.2.2 選擇器和複選框列表
+**適用於：** `BelongsTo`, `BelongsToMany` 關係
+**特點：** 從現有記錄中選擇或創建新記錄
+
+**BelongsTo 關係：**
+```php
+use Filament\Forms\Components\Select;
+
+Select::make('category_id')
+    ->relationship('category', 'name')
+    ->searchable()
+    ->preload()
+    ->createOptionForm([
+        TextInput::make('name')->required(),
+        TextInput::make('slug')->required(),
+    ]);
+```
+
+**BelongsToMany 關係：**
+```php
+use Filament\Forms\Components\CheckboxList;
+
+CheckboxList::make('tags')
+    ->relationship('tags', 'name')
+    ->searchable()
+    ->preload()
+    ->bulkToggleable();
+```
+
+##### 19.2.3 重複器 (Repeaters)
+**適用於：** 在所有者表單內 CRUD 多個相關記錄
+**特點：** 動態添加/刪除字段組
+
+```php
+use Filament\Forms\Components\Repeater;
+
+Repeater::make('phone_numbers')
+    ->schema([
+        Select::make('type')
+            ->options([
+                'mobile' => 'Mobile',
+                'home' => 'Home',
+                'work' => 'Work',
+            ])
+            ->required(),
+        TextInput::make('number')
+            ->tel()
+            ->required(),
+    ])
+    ->defaultItems(1)
+    ->reorderableWithButtons()
+    ->collapsible();
+```
+
+##### 19.2.4 佈局表單組件
+**適用於：** 將表單字段保存到單個關係
+**特點：** 使用 Section 或 Fieldset 分組
+
+```php
+use Filament\Forms\Components\Section;
+
+Section::make('Address Information')
+    ->schema([
+        TextInput::make('address.street'),
+        TextInput::make('address.city'),
+        TextInput::make('address.postal_code'),
+    ])
+    ->columns(3);
+```
+
+#### 19.3 關係管理器功能
+
+##### 19.3.1 自定義 URL 參數
+```php
+protected static ?string $slug = 'posts';
+```
+
+##### 19.3.2 只讀模式
+```php
+protected static bool $isReadOnly = true;
+```
+
+##### 19.3.3 處理軟刪除
+```php
+protected static bool $hasAssociateAction = false;
+protected static bool $hasDissociateAction = false;
+```
+
+##### 19.3.4 自定義查詢
+```php
+public function table(Table $table): Table
+{
+    return $table
+        ->modifyQueryUsing(fn (Builder $query) => $query->where('status', 'published'))
+        ->columns([
+            // ...
+        ]);
+}
+```
+
+#### 19.4 關係頁面 (Relation Pages)
+**替代關係管理器的選擇：**
+- 使用 `ManageRelatedRecords` 頁面
+- 適用於資源子導航
+- 保持關係管理功能與編輯/查看所有者記錄分離
+
+**創建關係頁面：**
+```bash
+php artisan make:filament-page ManageCustomerAddresses --resource=CustomerResource --type=ManageRelatedRecords
+```
+
+**註冊關係頁面：**
+```php
+public static function getPages(): array
+{
+    return [
+        'index' => Pages\ListCustomers::route('/'),
+        'create' => Pages\CreateCustomer::route('/create'),
+        'view' => Pages\ViewCustomer::route('/{record}'),
+        'edit' => Pages\EditCustomer::route('/{record}/edit'),
+        'addresses' => Pages\ManageCustomerAddresses::route('/{record}/addresses'),
+    ];
+}
+```
+
+**添加到資源子導航：**
+```php
+public static function getRecordSubNavigation(Page $page): array
+{
+    return $page->generateNavigationItems([
+        // ...
+        Pages\ManageCustomerAddresses::class,
+    ]);
+}
+```
+
+#### 19.5 傳遞屬性到關係管理器
+```php
+public static function getRelations(): array
+{
+    return [
+        CommentsRelationManager::make([
+            'status' => 'approved',
+        ]),
+    ];
+}
+```
+
+**在關係管理器中接收：**
+```php
+class CommentsRelationManager extends RelationManager
+{
+    public string $status;
+
+    public function table(Table $table): Table
+    {
+        return $table
+            ->modifyQueryUsing(fn (Builder $query) => $query->where('status', $this->status))
+            ->columns([
+                // ...
+            ]);
+    }
+}
+```
+
+#### 19.6 禁用懶加載
+```php
+protected static bool $isLazy = false;
+```
+
+### 20. 資源概述 (Resources Overview)
+
+#### 20.1 資源基礎
+**資源是管理 Eloquent 模型的完整 CRUD 界面：**
+- **List** - 分頁表格顯示所有記錄
+- **Create** - 創建新記錄的表單
+- **Edit** - 編輯現有記錄的表單
+- **View** - 只讀記錄顯示
+
+#### 20.2 創建資源
+```bash
+php artisan make:filament-resource User
+```
+
+**基本資源結構：**
+```php
+use Filament\Resources\Resource;
+
+class UserResource extends Resource
+{
+    protected static ?string $model = User::class;
+    protected static ?string $navigationIcon = 'heroicon-o-users';
+    protected static ?string $navigationGroup = 'User Management';
+
+    public static function form(Schema $schema): Schema
+    {
+        return $schema
+            ->components([
+                Forms\Components\TextInput::make('name')->required(),
+                Forms\Components\TextInput::make('email')->email()->required(),
+            ]);
+    }
+
+    public static function table(Table $table): Table
+    {
+        return $table
+            ->columns([
+                Tables\Columns\TextColumn::make('name')->searchable(),
+                Tables\Columns\TextColumn::make('email')->searchable(),
+            ])
+            ->filters([
+                //
+            ])
+            ->actions([
+                Tables\Actions\EditAction::make(),
+            ])
+            ->bulkActions([
+                Tables\Actions\BulkActionGroup::make([
+                    Tables\Actions\DeleteBulkAction::make(),
+                ]),
+            ]);
+    }
+
+    public static function getPages(): array
+    {
+        return [
+            'index' => Pages\ListUsers::route('/'),
+            'create' => Pages\CreateUser::route('/create'),
+            'edit' => Pages\EditUser::route('/{record}/edit'),
+        ];
+    }
+}
+```
+
+#### 20.3 資源配置
+
+##### 20.3.1 導航配置
+```php
+protected static ?string $navigationIcon = 'heroicon-o-users';
+protected static ?string $navigationGroup = 'User Management';
+protected static ?int $navigationSort = 1;
+protected static ?string $navigationLabel = 'Users';
+protected static ?string $navigationBadge = 'New';
+protected static ?string $navigationBadgeTooltip = 'New users this week';
+```
+
+##### 20.3.2 模型配置
+```php
+protected static ?string $model = User::class;
+protected static ?string $slug = 'users';
+protected static ?string $recordTitleAttribute = 'name';
+```
+
+##### 20.3.3 權限配置
+```php
+protected static bool $shouldRegisterNavigation = true;
+protected static bool $shouldSkipAuthorization = false;
+```
+
+#### 20.4 自定義頁面
+```php
+public static function getPages(): array
+{
+    return [
+        'index' => Pages\ListUsers::route('/'),
+        'create' => Pages\CreateUser::route('/create'),
+        'view' => Pages\ViewUser::route('/{record}'),
+        'edit' => Pages\EditUser::route('/{record}/edit'),
+        'settings' => Pages\UserSettings::route('/{record}/settings'),
+    ];
+}
+```
+
+### 21. 表格操作 (Table Actions)
+
+#### 21.1 操作類型
+
+##### 21.1.1 行操作 (Row Actions)
+**單個記錄的操作：**
+```php
+use Filament\Tables\Actions;
+
+public function table(Table $table): Table
+{
+    return $table
+        ->actions([
+            Actions\ViewAction::make(),
+            Actions\EditAction::make(),
+            Actions\DeleteAction::make(),
+        ]);
+}
+```
+
+##### 21.1.2 標題操作 (Header Actions)
+**表格頂部的操作：**
+```php
+public function table(Table $table): Table
+{
+    return $table
+        ->headerActions([
+            Actions\CreateAction::make(),
+            Actions\ImportAction::make(),
+        ]);
+}
+```
+
+##### 21.1.3 批量操作 (Bulk Actions)
+**多個記錄的操作：**
+```php
+use Filament\Tables\Actions\BulkActionGroup;
+
+public function table(Table $table): Table
+{
+    return $table
+        ->bulkActions([
+            BulkActionGroup::make([
+                Actions\BulkAction::make('activate')
+                    ->label('Activate Selected')
+                    ->icon('heroicon-o-check-circle')
+                    ->color('success')
+                    ->action(function ($records) {
+                        $records->each->update(['is_active' => true]);
+                    }),
+                Actions\BulkAction::make('deactivate')
+                    ->label('Deactivate Selected')
+                    ->icon('heroicon-o-x-circle')
+                    ->color('danger')
+                    ->action(function ($records) {
+                        $records->each->update(['is_active' => false]);
+                    }),
+                Actions\DeleteBulkAction::make(),
+            ]),
+        ]);
+}
+```
+
+#### 21.2 自定義操作
+
+##### 21.2.1 自定義操作按鈕
+```php
+Actions\Action::make('send_notification')
+    ->label('Send Notification')
+    ->icon('heroicon-o-bell')
+    ->color('warning')
+    ->form([
+        Forms\Components\TextInput::make('subject')->required(),
+        Forms\Components\Textarea::make('message')->required(),
+    ])
+    ->action(function (array $data, $record) {
+        $record->notify(new CustomNotification($data['subject'], $data['message']));
+    })
+    ->successNotification(
+        Notification::make()
+            ->success()
+            ->title('Notification sent')
+            ->body('The notification has been sent successfully.')
+    );
+```
+
+##### 21.2.2 條件操作
+```php
+Actions\EditAction::make()
+    ->visible(fn ($record) => $record->status !== 'archived')
+    ->disabled(fn ($record) => $record->is_locked);
+```
+
+##### 21.2.3 操作分組
+```php
+Actions\ActionGroup::make([
+    Actions\ViewAction::make(),
+    Actions\EditAction::make(),
+    Actions\DeleteAction::make(),
+])
+    ->label('Actions')
+    ->icon('heroicon-m-ellipsis-vertical')
+    ->color('gray')
+    ->dropdownPlacement('bottom-end');
+```
+
+#### 21.3 操作配置
+
+##### 21.3.1 模態框配置
+```php
+Actions\EditAction::make()
+    ->modalHeading('Edit User')
+    ->modalDescription('Update user information')
+    ->modalSubmitActionLabel('Save Changes')
+    ->modalCancelActionLabel('Cancel')
+    ->modalWidth('lg');
+```
+
+##### 21.3.2 確認對話框
+```php
+Actions\DeleteAction::make()
+    ->requiresConfirmation()
+    ->modalHeading('Delete User')
+    ->modalDescription('Are you sure you want to delete this user? This action cannot be undone.')
+    ->modalSubmitActionLabel('Yes, delete user')
+    ->modalCancelActionLabel('Cancel');
+```
+
+##### 21.3.3 重定向配置
+```php
+Actions\CreateAction::make()
+    ->redirect(route('admin.users.index'));
+
+Actions\EditAction::make()
+    ->redirect(fn ($record) => route('admin.users.view', $record));
+```
+
+### 22. 表格佈局 (Table Layout)
+
+#### 22.1 響應式佈局
+```php
+public function table(Table $table): Table
+{
+    return $table
+        ->contentGrid([
+            'md' => 2,
+            'xl' => 3,
+        ])
+        ->columns([
+            // ...
+        ]);
+}
+```
+
+#### 22.2 自定義佈局
+```php
+public function table(Table $table): Table
+{
+    return $table
+        ->columns([
+            Tables\Columns\TextColumn::make('name')
+                ->columnSpan([
+                    'default' => 1,
+                    'md' => 2,
+                ]),
+            Tables\Columns\TextColumn::make('email')
+                ->columnSpan([
+                    'default' => 1,
+                    'md' => 1,
+                ]),
+        ]);
+}
+```
+
+#### 22.3 表格樣式
+```php
+public function table(Table $table): Table
+{
+    return $table
+        ->striped()
+        ->hover()
+        ->bordered()
+        ->compact();
+}
+```
+
+#### 22.4 空狀態
+```php
+public function table(Table $table): Table
+{
+    return $table
+        ->emptyStateHeading('No users found')
+        ->emptyStateDescription('Create your first user to get started.')
+        ->emptyStateIcon('heroicon-o-users')
+        ->emptyStateActions([
+            Tables\Actions\Action::make('create')
+                ->label('Create user')
+                ->url(route('admin.users.create'))
+                ->icon('heroicon-o-plus')
+                ->button(),
+        ]);
+}
+```
+
+### 23. 表格摘要 (Table Summaries)
+
+#### 23.1 基本摘要
+```php
+use Filament\Tables\Enums\FiltersLayout;
+
+public function table(Table $table): Table
+{
+    return $table
+        ->columns([
+            Tables\Columns\TextColumn::make('name'),
+            Tables\Columns\TextColumn::make('email'),
+            Tables\Columns\TextColumn::make('created_at')
+                ->dateTime(),
+        ])
+        ->filters([
+            Tables\Filters\SelectFilter::make('status')
+                ->options([
+                    'active' => 'Active',
+                    'inactive' => 'Inactive',
+                ]),
+        ], layout: FiltersLayout::AboveContent)
+        ->filtersFormColumns(3)
+        ->filtersTriggerAction(
+            fn (Tables\Actions\Action $action) => $action
+                ->button()
+                ->label('Filters'),
+        );
+}
+```
+
+#### 23.2 自定義摘要
+```php
+public function table(Table $table): Table
+{
+    return $table
+        ->columns([
+            Tables\Columns\TextColumn::make('name'),
+            Tables\Columns\TextColumn::make('email'),
+            Tables\Columns\TextColumn::make('created_at')
+                ->dateTime(),
+        ])
+        ->filters([
+            Tables\Filters\Filter::make('created_from')
+                ->form([
+                    Forms\Components\DatePicker::make('created_from'),
+                ])
+                ->query(function (Builder $query, array $data): Builder {
+                    return $query
+                        ->when(
+                            $data['created_from'],
+                            fn (Builder $query, $date): Builder => $query->whereDate('created_at', '>=', $date),
+                        );
+                }),
+        ]);
+}
+```
+
+#### 23.3 摘要佈局
+```php
+public function table(Table $table): Table
+{
+    return $table
+        ->filters([
+            // ...
+        ], layout: FiltersLayout::AboveContent) // AboveContent, AboveContentCollapsible, BelowContent, Dropdown
+        ->filtersFormColumns(3)
+        ->filtersTriggerAction(
+            fn (Tables\Actions\Action $action) => $action
+                ->button()
+                ->label('Filters')
+                ->icon('heroicon-o-funnel'),
+        );
+}
+```
+
+#### 23.4 持久化摘要
+```php
+public function table(Table $table): Table
+{
+    return $table
+        ->filters([
+            Tables\Filters\SelectFilter::make('status')
+                ->options([
+                    'active' => 'Active',
+                    'inactive' => 'Inactive',
+                ])
+                ->persist(),
+        ]);
+}
+```
+
+### 24. 關係管理器自定義
+
+#### 24.1 自定義關係管理器標題
+```php
+protected static ?string $title = 'Posts';
+
+// 或動態標題
+public static function getTitle(Model $ownerRecord, string $pageClass): string
+{
+    return __('relation-managers.posts.title');
+}
+```
+
+#### 24.2 自定義記錄標題
+```php
+public function table(Table $table): Table
+{
+    return $table
+        ->recordTitle(fn (Post $record): string => "{$record->title} ({$record->id})")
+        ->columns([
+            // ...
+        ]);
+}
+```
+
+#### 24.3 關係管理器分組
+```php
+public static function getRelations(): array
+{
+    return [
+        'content' => [
+            PostsRelationManager::class,
+            CommentsRelationManager::class,
+        ],
+        'settings' => [
+            SettingsRelationManager::class,
+        ],
+    ];
+}
+```
+
+#### 24.4 條件顯示關係管理器
+```php
+public static function getRelations(): array
+{
+    return [
+        PostsRelationManager::class,
+        CommentsRelationManager::class,
+    ];
+}
+
+public static function getEloquentQuery(): Builder
+{
+    return parent::getEloquentQuery()
+        ->when(
+            auth()->user()->role !== 'admin',
+            fn (Builder $query) => $query->where('is_public', true),
+        );
+}
+```
+
+#### 24.5 組合關係管理器標籤與表單
+```php
+public function getContentTabLabel(): ?string
+{
+    return 'Content';
+}
+
+public function getContentTabIcon(): ?string
+{
+    return 'heroicon-o-document-text';
+}
+
+public function getContentTabBadge(): ?string
+{
+    return $this->getOwnerRecord()->posts()->count();
+}
+```
+
+### 25. 高級表格功能
+
+#### 25.1 行分組
+```php
+public function table(Table $table): Table
+{
+    return $table
+        ->columns([
+            Tables\Columns\TextColumn::make('name'),
+            Tables\Columns\TextColumn::make('email'),
+            Tables\Columns\TextColumn::make('created_at')
+                ->dateTime(),
+        ])
+        ->grouping([
+            'groupQuery' => fn (Builder $query, string $direction): Builder => $query->orderBy('created_at', $direction),
+        ])
+        ->defaultGroup('created_at');
+}
+```
+
+#### 25.2 自定義數據
+```php
+public function table(Table $table): Table
+{
+    return $table
+        ->query(
+            User::query()
+                ->select(['id', 'name', 'email', 'created_at'])
+                ->where('is_active', true)
+        )
+        ->columns([
+            Tables\Columns\TextColumn::make('name'),
+            Tables\Columns\TextColumn::make('email'),
+            Tables\Columns\TextColumn::make('created_at')
+                ->dateTime(),
+        ]);
+}
+```
+
+#### 25.3 表格事件
+```php
+public function table(Table $table): Table
+{
+    return $table
+        ->columns([
+            // ...
+        ])
+        ->actions([
+            Tables\Actions\EditAction::make()
+                ->after(function ($record) {
+                    // 編輯後的操作
+                    activity()->log("User {$record->name} was edited");
+                }),
+        ]);
+}
+```
+
+### 26. 最佳實踐
+
+#### 26.1 性能優化
+- 使用適當的數據庫查詢
+- 避免 N+1 查詢問題
+- 合理使用預加載
+- 實施適當的索引
+
+#### 26.2 用戶體驗
+- 提供清晰的標籤和描述
+- 使用適當的圖標和顏色
+- 確保響應式設計
+- 提供有用的空狀態
+
+#### 26.3 安全性
+- 實施適當的權限檢查
+- 驗證所有用戶輸入
+- 保護敏感數據
+- 記錄重要操作
+
+#### 26.4 代碼組織
+- 使用適當的命名空間
+- 遵循 PSR 標準
+- 保持代碼簡潔
+- 添加適當的註釋
+
+
+記住，Filament 是一個活躍的開源項目，定期會有更新和新功能。建議定期查看官方文檔以獲取最新信息。
+
+### 27. 導航系統 (Navigation System)
+
+#### 27.1 概述
+**導航系統功能：**
+- 默認情況下，Filament 會為每個資源、自定義頁面和集群註冊導航項目
+- 這些類包含靜態屬性和方法，您可以覆蓋它們來配置導航項目
+- 如果您想為應用程序添加第二層導航，可以使用集群來將資源和頁面分組在一起
+
+#### 27.2 自定義導航項目標籤
+
+**自定義導航標籤：**
+```php
+protected static ?string $navigationLabel = 'Custom Navigation Label';
+```
+
+**動態標籤：**
+```php
+public static function getNavigationLabel(): string
+{
+    return __('navigation.users');
+}
+```
+
+#### 27.3 自定義導航項目圖標
+
+**設置導航圖標：**
+```php
+protected static ?string $navigationIcon = 'heroicon-o-users';
+```
+
+**動態圖標：**
+```php
+public static function getNavigationIcon(): ?string
+{
+    return 'heroicon-o-users';
+}
+```
+
+**當導航項目處於活動狀態時切換圖標：**
+```php
+protected static ?string $navigationActiveIcon = 'heroicon-o-users';
+```
+
+#### 27.4 排序導航項目
+
+**設置導航排序：**
+```php
+protected static ?int $navigationSort = 1;
+```
+
+**動態排序：**
+```php
+public static function getNavigationSort(): ?int
+{
+    return 1;
+}
+```
+
+#### 27.5 為導航項目添加徽章
+
+**添加徽章：**
+```php
+protected static ?string $navigationBadge = 'New';
+```
+
+**動態徽章：**
+```php
+public static function getNavigationBadge(): ?string
+{
+    return User::count();
+}
+```
+
+**徽章顏色：**
+```php
+protected static ?string $navigationBadgeColor = 'success';
+```
+
+**徽章工具提示：**
+```php
+protected static ?string $navigationBadgeTooltip = 'New users this week';
+```
+
+#### 27.6 分組導航項目
+
+**使用導航組：**
+```php
+protected static ?string $navigationGroup = 'User Management';
+```
+
+**動態分組：**
+```php
+public static function getNavigationGroup(): ?string
+{
+    return __('navigation.user_management');
+}
+```
+
+**在導航組下分組其他項目：**
+```php
+protected static ?string $navigationParentItem = 'settings';
+```
+
+**自定義導航組：**
+```php
+use Filament\Navigation\NavigationGroup;
+
+NavigationGroup::make('Website')
+    ->icon('heroicon-o-globe-alt')
+    ->collapsed();
+```
+
+**使用枚舉註冊導航組：**
+```php
+enum NavigationGroup: string
+{
+    case Website = 'website';
+    case Settings = 'settings';
+}
+
+// 在資源中使用
+protected static ?string $navigationGroup = NavigationGroup::Website->value;
+```
+
+#### 27.7 桌面上的可折疊側邊欄
+
+**啟用桌面折疊：**
+```php
+use Filament\Panel;
+
+public function panel(Panel $panel): Panel
+{
+    return $panel
+        ->sidebarCollapsibleOnDesktop();
+}
+```
+
+**桌面可折疊側邊欄中的導航組：**
+```php
+NavigationGroup::make('Website')
+    ->collapsed();
+```
+
+#### 27.8 註冊自定義導航項目
+
+**創建自定義導航項目：**
+```php
+use Filament\Navigation\NavigationItem;
+
+NavigationItem::make('Analytics')
+    ->url('https://filament.pirsch.io', shouldOpenInNewTab: true)
+    ->icon('heroicon-o-presentation-chart-line')
+    ->group('Reports')
+    ->sort(3);
+```
+
+**動態導航項目：**
+```php
+NavigationItem::make('dashboard')
+    ->label(fn (): string => __('filament-panels::pages/dashboard.title'))
+    ->url(fn (): string => Dashboard::getUrl())
+    ->isActiveWhen(fn () => original_request()->routeIs('filament.admin.pages.dashboard'));
+```
+
+#### 27.9 條件性隱藏導航項目
+
+**基於條件隱藏導航項目：**
+```php
+use Filament\Navigation\NavigationItem;
+
+NavigationItem::make('Analytics')
+    ->visible(fn(): bool => auth()->user()->can('view-analytics'))
+    // 或者
+    ->hidden(fn(): bool => ! auth()->user()->can('view-analytics'));
+```
+
+#### 27.10 禁用資源或頁面導航項目
+
+**防止資源或頁面顯示在導航中：**
+```php
+protected static bool $shouldRegisterNavigation = false;
+```
+
+**或者覆蓋方法：**
+```php
+public static function shouldRegisterNavigation(): bool
+{
+    return false;
+}
+```
+
+#### 27.11 使用頂部導航
+
+**配置頂部導航：**
+```php
+use Filament\Panel;
+
+public function panel(Panel $panel): Panel
+{
+    return $panel
+        ->topNavigation();
+}
+```
+
+#### 27.12 自定義側邊欄寬度
+
+**設置側邊欄寬度：**
+```php
+use Filament\Panel;
+
+public function panel(Panel $panel): Panel
+{
+    return $panel
+        ->sidebarWidth('40rem');
+}
+```
+
+**自定義折疊圖標寬度：**
+```php
+use Filament\Panel;
+
+public function panel(Panel $panel): Panel
+{
+    return $panel
+        ->sidebarCollapsibleOnDesktop()
+        ->collapsedSidebarWidth('9rem');
+}
+```
+
+#### 27.13 高級導航自定義
+
+**構建自定義導航：**
+```php
+use App\Filament\Pages\Settings;
+use App\Filament\Resources\Users\UserResource;
+use Filament\Navigation\NavigationBuilder;
+use Filament\Navigation\NavigationItem;
+use Filament\Pages\Dashboard;
+use Filament\Panel;
+use function Filament\Support\original_request;
+
+public function panel(Panel $panel): Panel
+{
+    return $panel
+        ->navigation(function (NavigationBuilder $builder): NavigationBuilder {
+            return $builder->items([
+                NavigationItem::make('Dashboard')
+                    ->icon('heroicon-o-home')
+                    ->isActiveWhen(fn (): bool => original_request()->routeIs('filament.admin.pages.dashboard'))
+                    ->url(fn (): string => Dashboard::getUrl()),
+                ...UserResource::getNavigationItems(),
+                ...Settings::getNavigationItems(),
+            ]);
+        });
+}
+```
+
+**註冊自定義導航組：**
+```php
+use App\Filament\Pages\HomePageSettings;
+use App\Filament\Resources\Categories\CategoryResource;
+use App\Filament\Resources\Pages\PageResource;
+use Filament\Navigation\NavigationBuilder;
+use Filament\Navigation\NavigationGroup;
+use Filament\Panel;
+
+public function panel(Panel $panel): Panel
+{
+    return $panel
+        ->navigation(function (NavigationBuilder $builder): NavigationBuilder {
+            return $builder->groups([
+                NavigationGroup::make('Website')
+                    ->items([
+                        ...PageResource::getNavigationItems(),
+                        ...CategoryResource::getNavigationItems(),
+                        ...HomePageSettings::getNavigationItems(),
+                    ]),
+            ]);
+        });
+}
+```
+
+#### 27.14 禁用導航
+
+**完全禁用導航：**
+```php
+use Filament\Panel;
+
+public function panel(Panel $panel): Panel
+{
+    return $panel
+        ->navigation(false);
+}
+```
+
+#### 27.15 禁用頂部欄
+
+**禁用頂部欄：**
+```php
+use Filament\Panel;
+
+public function panel(Panel $panel): Panel
+{
+    return $panel
+        ->topbar(false);
+}
+```
+
+#### 27.16 替換側邊欄和頂部欄 Livewire 組件
+
+**使用自定義組件：**
+```php
+use App\Livewire\Sidebar;
+use App\Livewire\Topbar;
+use Filament\Panel;
+
+public function panel(Panel $panel): Panel
+{
+    return $panel
+        ->sidebarLivewireComponent(Sidebar::class)
+        ->topbarLivewireComponent(Topbar::class);
+}
+```
+
+#### 27.17 禁用麵包屑
+
+**禁用麵包屑：**
+```php
+use Filament\Panel;
+
+public function panel(Panel $panel): Panel
+{
+    return $panel
+        ->breadcrumbs(false);
+}
+```
+
+#### 27.18 重新加載側邊欄和頂部欄
+
+**從 PHP 調度事件：**
+```php
+// 在任何 Livewire 組件中
+$this->dispatch('refresh-sidebar');
+
+// 在自定義操作中
+use Filament\Actions\Action;
+use Livewire\Component;
+
+Action::make('create')
+    ->action(function (Component $livewire) {
+        // ...
+    
+        $livewire->dispatch('refresh-sidebar');
+    });
+```
+
+**從 JavaScript 調度事件：**
+```html
+<!-- 使用 Alpine.js -->
+<button x-on:click="$dispatch('refresh-sidebar')" type="button">
+    Refresh Sidebar
+</button>
+
+<!-- 使用原生 JavaScript -->
+<script>
+window.dispatchEvent(new CustomEvent('refresh-sidebar'));
+</script>
+```
+
+#### 27.19 導航最佳實踐
+
+##### 27.19.1 組織原則
+- **邏輯分組**: 將相關功能組織在一起
+- **層次結構**: 使用適當的層次結構來組織導航
+- **一致性**: 保持導航標籤和圖標的一致性
+- **簡潔性**: 避免過多的導航項目
+
+##### 27.19.2 用戶體驗
+- **清晰的標籤**: 使用描述性的導航標籤
+- **適當的圖標**: 選擇有意義的圖標
+- **視覺反饋**: 提供適當的活動狀態指示
+- **響應式設計**: 確保在移動設備上的可用性
+
+##### 27.19.3 性能考慮
+- **條件渲染**: 合理使用條件顯示
+- **權限控制**: 基於用戶權限顯示導航項目
+- **緩存策略**: 考慮導航項目的緩存
+
+##### 27.19.4 可訪問性
+- **鍵盤導航**: 確保可以通過鍵盤訪問所有導航項目
+- **屏幕閱讀器**: 提供適當的 ARIA 標籤
+- **顏色對比**: 確保足夠的顏色對比度
+- **焦點管理**: 正確管理焦點狀態
+
+#### 27.20 導航配置示例
+
+**完整的導航配置示例：**
+```php
+use Filament\Panel;
+use Filament\Navigation\NavigationBuilder;
+use Filament\Navigation\NavigationGroup;
+use Filament\Navigation\NavigationItem;
+
+public function panel(Panel $panel): Panel
+{
+    return $panel
+        ->navigation(function (NavigationBuilder $builder): NavigationBuilder {
+            return $builder
+                ->groups([
+                    NavigationGroup::make('Content Management')
+                        ->icon('heroicon-o-document-text')
+                        ->items([
+                            ...PageResource::getNavigationItems(),
+                            ...PostResource::getNavigationItems(),
+                            ...CategoryResource::getNavigationItems(),
+                        ]),
+                    NavigationGroup::make('User Management')
+                        ->icon('heroicon-o-users')
+                        ->items([
+                            ...UserResource::getNavigationItems(),
+                            ...RoleResource::getNavigationItems(),
+                        ]),
+                    NavigationGroup::make('Settings')
+                        ->icon('heroicon-o-cog-6-tooth')
+                        ->items([
+                            ...Settings::getNavigationItems(),
+                        ]),
+                ])
+                ->items([
+                    NavigationItem::make('Analytics')
+                        ->url('https://analytics.example.com')
+                        ->icon('heroicon-o-chart-bar')
+                        ->group('Reports')
+                        ->visible(fn(): bool => auth()->user()->can('view-analytics')),
+                ]);
+        })
+        ->sidebarCollapsibleOnDesktop()
+        ->sidebarWidth('20rem')
+        ->collapsedSidebarWidth('5rem');
+}
+```
+
+這個導航系統提供了強大的自定義能力，讓您可以創建直觀且用戶友好的管理界面導航結構。
+
+
+記住，Filament 是一個活躍的開源項目，定期會有更新和新功能。建議定期查看官方文檔以獲取最新信息。
