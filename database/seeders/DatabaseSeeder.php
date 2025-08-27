@@ -26,8 +26,8 @@ class DatabaseSeeder extends Seeder
         // Create 5 members
         for ($i = 1; $i <= 5; $i++) {
             Member::create([
-                'name' => "Member {$i}",
-                'email' => "member{$i}@example.com",
+                'name' => "User {$i}",
+                'email' => "user{$i}@example.com",
                 'password' => Hash::make('password'),
                 'score' => rand(0, 500),
                 'level' => rand(1, 5),

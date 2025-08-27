@@ -32,6 +32,11 @@ class QuestionsTable
                 TextColumn::make('question_type')
                     ->label('Type')
                     ->badge()
+                    ->formatStateUsing(fn (string $state): string => match ($state) {
+                        'multiple_choice' => 'Multiple Choice',
+                        'fill_blank' => 'Fill Blank',
+                        default => $state,
+                    })
                     ->color(fn (string $state): string => match ($state) {
                         'multiple_choice' => 'success',
                         'fill_blank' => 'warning',
@@ -52,10 +57,10 @@ class QuestionsTable
                     }),
                 ToggleColumn::make('is_active')
                     ->label('Active'),
-                TextColumn::make('created_at')
-                    ->label('Created')
-                    ->dateTime()
-                    ->sortable(),
+                // TextColumn::make('created_at')
+                //     ->label('Created')
+                //     ->dateTime()
+                //     ->sortable(),
             ])
             ->filters([
                 SelectFilter::make('category')
