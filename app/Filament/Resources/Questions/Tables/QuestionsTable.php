@@ -8,6 +8,7 @@ use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Columns\ToggleColumn;
+use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 
@@ -42,9 +43,53 @@ class QuestionsTable
                         'fill_blank' => 'warning',
                         default => 'gray',
                     }),
+                TextColumn::make('options_count')
+                    ->label('Options')
+                    ->state(function (Question $record): string {
+                        if ($record->isMultipleChoice()) {
+                            $count = $record->getOptionsCount();
+                            return "{$count} options";
+                        }
+                        return '-';
+                    })
+                    ->badge()
+                    ->color(function (Question $record): string {
+                        if (!$record->isMultipleChoice()) {
+                            return 'gray';
+                        }
+                        
+                        $count = $record->getOptionsCount();
+                        return match (true) {
+                            $count >= 4 => 'success',
+                            $count >= 2 => 'warning',
+                            default => 'danger',
+                        };
+                    }),
                 TextColumn::make('correct_answer')
                     ->label('Correct Answer')
-                    ->searchable(),
+                    ->searchable()
+                    ->limit(30),
+                IconColumn::make('validation_status')
+                    ->label('Valid')
+                    ->boolean()
+                    ->getStateUsing(function (Question $record): bool {
+                        if ($record->isMultipleChoice()) {
+                            return $record->isCorrectAnswerValid();
+                        }
+                        return true;
+                    })
+                    ->trueIcon('heroicon-o-check-circle')
+                    ->falseIcon('heroicon-o-x-circle')
+                    ->trueColor('success')
+                    ->falseColor('danger')
+                    ->tooltip(function (Question $record): string {
+                        if ($record->isMultipleChoice()) {
+                            return $record->isCorrectAnswerValid() 
+                                ? 'Correct answer is valid' 
+                                : 'Correct answer is not in options';
+                        }
+                        return 'Not applicable';
+                    }),
                 TextColumn::make('difficulty_level')
                     ->label('Difficulty')
                     ->badge()
@@ -57,10 +102,11 @@ class QuestionsTable
                     }),
                 ToggleColumn::make('is_active')
                     ->label('Active'),
-                // TextColumn::make('created_at')
-                //     ->label('Created')
-                //     ->dateTime()
-                //     ->sortable(),
+                TextColumn::make('created_at')
+                    ->label('Created')
+                    ->dateTime()
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
                 SelectFilter::make('category')
@@ -81,6 +127,8 @@ class QuestionsTable
                         5 => 'Level 5 - Expert',
                     ])
                     ->label('Filter by Difficulty'),
+                // Note: Validation filter removed due to SQLite compatibility
+                // For MySQL/PostgreSQL, you can use JSON_CONTAINS or similar functions
             ])
             ->recordActions([
                 EditAction::make(),
