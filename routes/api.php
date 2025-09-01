@@ -6,6 +6,8 @@ use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\CategoryController;
 use App\Http\Controllers\Api\QuestionController;
 use App\Http\Controllers\Api\GameController;
+use App\Http\Controllers\Api\GameRoomController;
+use App\Http\Controllers\Api\GameSessionController;
 
 /*
 |--------------------------------------------------------------------------
@@ -42,9 +44,41 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/questions/random', [QuestionController::class, 'random']);
     Route::get('/questions/{id}', [QuestionController::class, 'show']);
     
-    // Game routes
+    // Single-player Game routes
     Route::post('/game/submit-answer', [GameController::class, 'submitAnswer']);
     Route::get('/game/progress', [GameController::class, 'getProgress']);
     Route::get('/game/leaderboard', [GameController::class, 'getLeaderboard']);
     Route::get('/game/stats', [GameController::class, 'getStats']);
+    
+    // Game Room CRUD routes
+    Route::prefix('game-rooms')->group(function () {
+        Route::get('/', [GameRoomController::class, 'index']);
+        Route::post('/', [GameRoomController::class, 'store']);
+        Route::get('/find-by-code', [GameRoomController::class, 'findByCode']);
+        Route::get('/{id}', [GameRoomController::class, 'show']);
+        
+        // Player actions
+        Route::post('/{id}/join', [GameRoomController::class, 'join']);
+        Route::post('/{id}/leave', [GameRoomController::class, 'leave']);
+        Route::post('/{id}/toggle-ready', [GameRoomController::class, 'toggleReady']);
+        
+        // Room owner controls
+        Route::post('/{id}/start', [GameRoomController::class, 'start']);
+        Route::post('/{id}/end', [GameRoomController::class, 'end']);
+        
+        // Game actions
+        Route::post('/{id}/submit-answer', [GameRoomController::class, 'submitAnswer']);
+        Route::get('/{id}/leaderboard', [GameRoomController::class, 'leaderboard']);
+    });
+    
+    // Game Session Management routes
+    Route::prefix('game-sessions')->group(function () {
+        Route::get('/{roomId}/state', [GameSessionController::class, 'getGameState']);
+        Route::post('/{roomId}/next-question', [GameSessionController::class, 'nextQuestion']);
+        Route::post('/{roomId}/pause', [GameSessionController::class, 'pauseGame']);
+        Route::post('/{roomId}/resume', [GameSessionController::class, 'resumeGame']);
+        Route::post('/{roomId}/skip-question', [GameSessionController::class, 'skipQuestion']);
+        Route::get('/{roomId}/question-results', [GameSessionController::class, 'getQuestionResults']);
+        Route::get('/{roomId}/summary', [GameSessionController::class, 'getGameSummary']);
+    });
 });
